@@ -1037,5 +1037,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI settings endpoints
+  app.get('/api/admin/ai-settings', verifyAdmin, async (req, res) => {
+    try {
+      const enabled = await storage.getAIEnabled();
+      res.json({ enabled });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch AI settings' });
+    }
+  });
+
+  app.post('/api/admin/ai-settings', verifyAdmin, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      await storage.setAIEnabled(enabled);
+      res.json({ success: true, enabled });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update AI settings' });
+    }
+  });
+
+  app.get('/api/ai/enabled', async (req, res) => {
+    try {
+      const enabled = await storage.getAIEnabled();
+      res.json({ enabled });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to check AI status' });
+    }
+  });
+
+  // AI chat endpoint
+  app.post('/api/ai/chat', async (req, res) => {
+    try {
+      const aiEnabled = await storage.getAIEnabled();
+      if (!aiEnabled) {
+        return res.status(503).json({ error: 'AI chat is currently disabled' });
+      }
+
+      const { message } = req.body;
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'Invalid message' });
+      }
+
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: message,
+      });
+
+      res.json({ response: response.text || 'Unable to generate response' });
+    } catch (error) {
+      console.error('AI chat error:', error);
+      res.status(500).json({ error: 'Failed to process AI request' });
+    }
+  });
+
   return httpServer;
 }

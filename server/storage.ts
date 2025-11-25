@@ -40,6 +40,9 @@ export interface IStorage {
   unblockCountry(countryCode: string): Promise<void>;
   getBlockedCountries(): Promise<BlockedCountry[]>;
   isCountryBlocked(countryCode: string): Promise<boolean>;
+  // AI settings
+  getAIEnabled(): Promise<boolean>;
+  setAIEnabled(enabled: boolean): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -466,6 +469,15 @@ export class MemStorage implements IStorage {
 
   async isCountryBlocked(countryCode: string): Promise<boolean> {
     return this.blockedCountries.has(countryCode.toUpperCase());
+  }
+
+  async getAIEnabled(): Promise<boolean> {
+    return this.aiEnabled;
+  }
+
+  async setAIEnabled(enabled: boolean): Promise<void> {
+    this.aiEnabled = enabled;
+    await this.saveSettingsToDisk();
   }
 }
 
