@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Ping Render site
         run: |
-          curl -s https://strangerchat.onrender.com/api/stats || true
+          curl -s https://projectafter.onrender.com/api/stats || true
