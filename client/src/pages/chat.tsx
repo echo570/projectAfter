@@ -14,6 +14,7 @@ import {
   X,
   Send,
   User,
+  Flag,
 } from "lucide-react";
 import type { Message, WebSocketMessage } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ export default function Chat() {
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
+  const [partnerId, setPartnerId] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -111,6 +113,7 @@ export default function Chat() {
     switch (msg.type) {
       case 'match':
         sessionIdRef.current = msg.data.sessionId;
+        setPartnerId(msg.data.partnerId);
         setChatStatus('connected');
         toast({
           title: "Stranger connected!",

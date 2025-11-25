@@ -111,6 +111,15 @@ export interface BannedIP {
   expiresAt?: number;
 }
 
+export interface Report {
+  id: string;
+  reportedUserId: string;
+  reportedIP: string;
+  reporterUserId: string;
+  reason: string;
+  reportedAt: number;
+}
+
 export interface ChatMonitoringSession {
   sessionId: string;
   user1Id: string;
@@ -131,7 +140,7 @@ export interface SiteAnalytics {
 }
 
 export interface WebSocketMessage {
-  type: 'find-match' | 'message' | 'typing' | 'match' | 'end' | 'partner-disconnected' | 'offer' | 'answer' | 'ice-candidate' | 'set-interests';
+  type: 'find-match' | 'message' | 'typing' | 'match' | 'end' | 'partner-disconnected' | 'offer' | 'answer' | 'ice-candidate' | 'set-interests' | 'report-user';
   data?: any;
 }
 

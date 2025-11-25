@@ -1,4 +1,4 @@
-import type { ChatSession, UserState, Admin, AdminSession, BannedUser, BannedIP, ChatMonitoringSession, SiteAnalytics } from "@shared/schema";
+import type { ChatSession, UserState, Admin, AdminSession, BannedUser, BannedIP, Report, ChatMonitoringSession, SiteAnalytics } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -29,6 +29,10 @@ export interface IStorage {
   unbanIP(ipAddress: string): Promise<void>;
   getBannedIPs(): Promise<BannedIP[]>;
   isIPBanned(ipAddress: string): Promise<boolean>;
+  // Reporting system
+  addReport(reportedUserId: string, reportedIP: string, reporterUserId: string, reason: string): Promise<void>;
+  getReportCountInLast24Hours(ipAddress: string): Promise<number>;
+  getReports(): Promise<Report[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -39,6 +43,7 @@ export class MemStorage implements IStorage {
   private interests: string[];
   private bannedUsers: Map<string, BannedUser>;
   private bannedIPs: Map<string, BannedIP>;
+  private reports: Report[];
   private sessionDurations: { sessionId: string; duration: number }[];
 
   constructor() {
@@ -48,6 +53,7 @@ export class MemStorage implements IStorage {
     this.admins = new Map();
     this.bannedUsers = new Map();
     this.bannedIPs = new Map();
+    this.reports = [];
     this.sessionDurations = [];
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
@@ -239,6 +245,28 @@ export class MemStorage implements IStorage {
     }
     
     return true;
+  }
+
+  async addReport(reportedUserId: string, reportedIP: string, reporterUserId: string, reason: string): Promise<void> {
+    const report: Report = {
+      id: randomUUID(),
+      reportedUserId,
+      reportedIP,
+      reporterUserId,
+      reason,
+      reportedAt: Date.now(),
+    };
+    this.reports.push(report);
+  }
+
+  async getReportCountInLast24Hours(ipAddress: string): Promise<number> {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    return this.reports.filter(r => r.reportedIP === ipAddress && r.reportedAt > oneDayAgo).length;
+  }
+
+  async getReports(): Promise<Report[]> {
+    return this.reports;
   }
 }
 

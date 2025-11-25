@@ -16,6 +16,7 @@ interface ConnectedClient {
   recentPartnerId?: string;
   recentPartnerTime?: number;
   interests: string[];
+  ipAddress: string;
 }
 
 const clients = new Map<string, ConnectedClient>();
@@ -41,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    const client: ConnectedClient = { ws, userId, interests: [] };
+    const client: ConnectedClient = { ws, userId, interests: [], ipAddress };
     clients.set(userId, client);
 
     storage.setUserState(userId, {
@@ -110,6 +111,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       case 'ice-candidate':
         await relaySignaling(userId, message);
         break;
+
+      case 'report-user':
+        await handleReportUser(userId, message.data);
+        break;
+    }
+  }
+
+  async function handleReportUser(reporterId: string, data: any) {
+    const reportedUserId = data.reportedUserId;
+    const reportedClient = clients.get(reportedUserId);
+    if (!reportedClient) return;
+
+    const reportedIP = reportedClient.ipAddress;
+    await storage.addReport(reportedUserId, reportedIP, reporterId, data.reason || 'Inappropriate behavior');
+
+    const reportCount = await storage.getReportCountInLast24Hours(reportedIP);
+    console.log(`User reported. IP: ${reportedIP}, Total reports in 24h: ${reportCount}`);
+
+    if (reportCount > 10) {
+      console.log(`Auto-banning IP ${reportedIP} for 1 hour due to ${reportCount} reports`);
+      await storage.banIP(reportedIP, `Auto-banned: ${reportCount} reports in 24 hours`, 'system', 1/24);
+
+      if (reportedClient.ws.readyState === WebSocket.OPEN) {
+        reportedClient.ws.close(4000, 'You have been banned due to multiple reports');
+      }
     }
   }
 
@@ -492,6 +518,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ bannedUsers, bannedIPs });
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch bans' });
+    }
+  });
+
+  app.get('/api/admin/reports', verifyAdmin, async (req, res) => {
+    try {
+      const reports = await storage.getReports();
+      const reportsWithCounts = await Promise.all(
+        reports.map(async (report) => ({
+          ...report,
+          totalReportsForIP: await storage.getReportCountInLast24Hours(report.reportedIP),
+        }))
+      );
+      res.json({ reports: reportsWithCounts });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch reports' });
     }
   });
 
