@@ -12,6 +12,7 @@ interface ConnectedClient {
   partnerId?: string;
   recentPartnerId?: string;
   recentPartnerTime?: number;
+  interests: string[];
 }
 
 const clients = new Map<string, ConnectedClient>();
@@ -27,12 +28,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   wss.on('connection', (ws: WebSocket) => {
     const userId = randomUUID();
-    const client: ConnectedClient = { ws, userId };
+    const client: ConnectedClient = { ws, userId, interests: [] };
     clients.set(userId, client);
 
     storage.setUserState(userId, {
       id: userId,
       status: 'idle',
+      interests: [],
       connectedAt: Date.now(),
     });
 
@@ -63,6 +65,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     switch (message.type) {
       case 'find-match':
         await findMatch(userId);
+        break;
+
+      case 'set-interests':
+        const client = clients.get(userId);
+        if (client) {
+          client.interests = message.data.interests || [];
+          await storage.setUserState(userId, {
+            id: userId,
+            status: 'idle',
+            interests: client.interests,
+            connectedAt: Date.now(),
+          });
+        }
         break;
 
       case 'message':
@@ -103,6 +118,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  function calculateInterestMatch(interests1: string[], interests2: string[]): number {
+    if (interests1.length === 0 || interests2.length === 0) return 0;
+    const commonInterests = interests1.filter(i => interests2.includes(i));
+    return commonInterests.length;
+  }
+
   async function findMatchForUser(userId: string): Promise<string | null> {
     const client = clients.get(userId);
     if (!client) return null;
@@ -115,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ? (now - client.recentPartnerTime) > GRACE_PERIOD_MS
       : true;
     
-    const otherWaitingUser = waitingUsers.find(u => {
+    const validCandidates = waitingUsers.filter(u => {
       if (u.id === userId) return false;
       
       const otherClient = clients.get(u.id);
@@ -135,6 +156,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return false;
     });
+
+    const otherWaitingUser = validCandidates.length > 0
+      ? validCandidates.sort((a, b) => {
+          const matchA = calculateInterestMatch(client.interests, a.interests);
+          const matchB = calculateInterestMatch(client.interests, b.interests);
+          return matchB - matchA;
+        })[0]
+      : undefined;
 
     if (otherWaitingUser) {
       const partnerId = otherWaitingUser.id;
