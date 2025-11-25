@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import type { WebSocketMessage, OnlineStats, AdminLogin } from "@shared/schema";
 import { adminLoginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
+import os from "os";
 // @ts-ignore - geoip-lite doesn't have TypeScript definitions
 import geoip from 'geoip-lite';
 
@@ -991,6 +992,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ logs: logBuffer });
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+  });
+
+  // Server metrics endpoint
+  app.get('/api/admin/metrics', verifyAdmin, async (req, res) => {
+    try {
+      const memUsage = process.memoryUsage();
+      const uptime = process.uptime();
+      const totalMemory = require('os').totalmem();
+      const freeMemory = require('os').freemem();
+      const cpus = require('os').cpus();
+      
+      const cpuUsage = process.cpuUsage();
+      const cpuPercent = (cpuUsage.user + cpuUsage.system) / (uptime * 1000000) * 100;
+      
+      res.json({
+        memory: {
+          used: Math.round(memUsage.heapUsed / 1024 / 1024),
+          total: Math.round(memUsage.heapTotal / 1024 / 1024),
+          systemUsed: Math.round((totalMemory - freeMemory) / 1024 / 1024),
+          systemTotal: Math.round(totalMemory / 1024 / 1024),
+        },
+        cpu: {
+          usage: Math.min(100, Math.round(cpuPercent * 10) / 10),
+          cores: cpus.length,
+        },
+        uptime: Math.round(uptime),
+        cacheSize: logBuffer.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch metrics' });
+    }
+  });
+
+  // Clear cache endpoint
+  app.post('/api/admin/clear-cache', verifyAdmin, async (req, res) => {
+    try {
+      logBuffer.length = 0;
+      res.json({ success: true, message: 'Cache cleared successfully' });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to clear cache' });
     }
   });
 

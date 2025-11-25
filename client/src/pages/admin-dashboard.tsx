@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle, Lock, Unlock, Terminal } from "lucide-react";
+import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle, Lock, Unlock, Terminal, Trash2, Cpu, HardDrive } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,6 +45,18 @@ export default function AdminDashboard() {
   const [newBlockReason, setNewBlockReason] = useState("");
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<Array<{ timestamp: string; message: string }>>([]);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [metricsInterval, setMetricsInterval] = useState<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    loadMetrics();
+    const interval = setInterval(loadMetrics, 5000);
+    setMetricsInterval(interval);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -272,6 +284,32 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadMetrics = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/metrics");
+      const data = await response.json();
+      setMetrics(data);
+    } catch (error) {
+      console.error("Failed to load metrics");
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (!confirm('Are you sure you want to clear the log cache? This cannot be undone.')) return;
+    
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/clear-cache", {});
+      setLogs([]);
+      await loadMetrics();
+      toast({ title: "Success", description: "Cache cleared successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to clear cache", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadMonitoring = async () => {
     try {
       const response = await apiRequest("GET", "/api/admin/monitoring");
@@ -473,6 +511,73 @@ export default function AdminDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Server Metrics */}
+        {metrics && (
+          <Card className="p-6 border-emerald-500/30">
+            <div className="flex items-center gap-2 mb-6">
+              <Activity className="w-6 h-6 text-emerald-600" />
+              <h2 className="text-2xl font-bold">Server Metrics</h2>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+              <div className="p-4 bg-secondary rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Cpu className="w-4 h-4 text-orange-500" />
+                  <p className="text-sm text-muted-foreground">CPU Usage</p>
+                </div>
+                <p className="text-3xl font-bold">{metrics.cpu.usage}%</p>
+                <p className="text-xs text-muted-foreground">{metrics.cpu.cores} cores</p>
+              </div>
+
+              <div className="p-4 bg-secondary rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <HardDrive className="w-4 h-4 text-blue-500" />
+                  <p className="text-sm text-muted-foreground">RAM Used</p>
+                </div>
+                <p className="text-3xl font-bold">{metrics.memory.used}MB</p>
+                <p className="text-xs text-muted-foreground">/ {metrics.memory.total}MB</p>
+              </div>
+
+              <div className="p-4 bg-secondary rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <HardDrive className="w-4 h-4 text-purple-500" />
+                  <p className="text-sm text-muted-foreground">System RAM</p>
+                </div>
+                <p className="text-3xl font-bold">{metrics.memory.systemUsed}MB</p>
+                <p className="text-xs text-muted-foreground">/ {metrics.memory.systemTotal}MB</p>
+              </div>
+
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Uptime</p>
+                <p className="text-3xl font-bold">{Math.floor(metrics.uptime / 3600)}h</p>
+                <p className="text-xs text-muted-foreground">{Math.floor((metrics.uptime % 3600) / 60)}m</p>
+              </div>
+
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Cached Logs</p>
+                <p className="text-3xl font-bold">{metrics.cacheSize}</p>
+                <p className="text-xs text-muted-foreground">/ 500 max</p>
+              </div>
+
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Ram Usage %</p>
+                <p className="text-3xl font-bold">{Math.round((metrics.memory.systemUsed / metrics.memory.systemTotal) * 100)}%</p>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleClearCache}
+              disabled={isLoading}
+              variant="outline"
+              className="w-full gap-2"
+              data-testid="button-clear-cache"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear Log Cache
+            </Button>
+          </Card>
+        )}
 
         {/* Interests Management */}
         <Card className="p-6">
