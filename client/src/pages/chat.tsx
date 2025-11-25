@@ -104,8 +104,42 @@ export default function Chat() {
       });
     };
 
-    ws.onclose = () => {
-      console.log('WebSocket closed');
+    ws.onclose = (event) => {
+      console.log('WebSocket closed', event.code, event.reason);
+      
+      // Show country blocking error
+      if (event.code === 4001) {
+        toast({
+          title: "Access Denied",
+          description: event.reason || "Your country is blocked from accessing this service.",
+          variant: "destructive",
+        });
+        setLocation('/');
+        return;
+      }
+      
+      // Show IP ban error
+      if (event.code === 4000) {
+        toast({
+          title: "Access Denied",
+          description: event.reason || "You have been banned from this service.",
+          variant: "destructive",
+        });
+        setLocation('/');
+        return;
+      }
+      
+      // Show maintenance mode error
+      if (event.code === 4003) {
+        toast({
+          title: "Maintenance",
+          description: event.reason || "The service is currently under maintenance.",
+          variant: "destructive",
+        });
+        setLocation('/');
+        return;
+      }
+      
       if (chatStatus === 'connected') {
         handlePartnerDisconnected();
       }
