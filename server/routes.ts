@@ -139,9 +139,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const reportCount = await storage.getReportCountInLast24Hours(reportedIP);
     console.log(`User reported. IP: ${reportedIP}, Total reports in 24h: ${reportCount}`);
 
-    if (reportCount > 10) {
-      console.log(`Auto-banning IP ${reportedIP} for 1 hour due to ${reportCount} reports`);
-      await storage.banIP(reportedIP, `Auto-banned: ${reportCount} reports in 24 hours`, 'system', 1/24);
+    if (reportCount > 6) {
+      console.log(`Auto-banning IP ${reportedIP} for 30 minutes due to ${reportCount} reports`);
+      await storage.banIP(reportedIP, 'Too many users reported bad behaviors', 'system', 30/1440);
 
       if (reportedClient.ws.readyState === WebSocket.OPEN) {
         reportedClient.ws.close(4000, 'You have been banned due to multiple reports');
