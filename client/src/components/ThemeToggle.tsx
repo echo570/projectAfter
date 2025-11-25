@@ -16,14 +16,14 @@ export function ThemeToggle() {
       <div className="relative w-full h-full flex items-center justify-center">
         {theme === 'light' ? (
           <Sun 
-            className="w-5 h-5 text-amber-500 animate-in fade-in-0 duration-300 absolute"
+            className="w-5 h-5 text-amber-500"
             style={{
               animation: 'spin-in 0.3s ease-out'
             }}
           />
         ) : (
           <Moon 
-            className="w-5 h-5 text-blue-300 animate-in fade-in-0 duration-300 absolute"
+            className="w-5 h-5 text-blue-300"
             style={{
               animation: 'spin-in 0.3s ease-out'
             }}

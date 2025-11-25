@@ -2,12 +2,11 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { InterestsSelector } from "@/components/InterestsSelector";
-import { Video, MessageCircle, Users, AlertTriangle, Lock, Globe } from "lucide-react";
+import { Video, MessageCircle, Users, AlertTriangle, Lock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OnlineStats } from "@shared/schema";
 import { useLanguage, type Language } from "@/hooks/use-language";
 import { LANGUAGES, useTranslation } from "@/lib/i18n";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -164,7 +163,6 @@ export default function Landing() {
                 <option key={code} value={code}>{name}</option>
               ))}
             </select>
-            <ThemeToggle />
           </div>
         </div>
       </header>

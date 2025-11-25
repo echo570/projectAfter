@@ -2,25 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Smooth theme transition */
-html {
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-html * {
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-
-/* Exclude animated elements from transition */
-html *[class*="animate-"],
-html .spin-in {
-  transition: none !important;
-}
-
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
