@@ -9,12 +9,14 @@ import { apiRequest } from "@/lib/queryClient";
 export default function AdminLogin() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isBanned, setIsBanned] = useState(false);
   const [banTimeRemaining, setBanTimeRemaining] = useState(0);
+
+  console.log("AdminLogin component loaded");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,65 +84,65 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-900 p-4">
-      <Card className="w-full max-w-md p-8 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-        <h1 className="text-3xl font-bold mb-2 text-black dark:text-white">Admin Panel</h1>
-        <p className="text-gray-700 dark:text-gray-300 mb-6">Sign in to manage the site</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', padding: '1rem' }}>
+      <div style={{ width: '100%', maxWidth: '28rem', padding: '2rem', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }}>
+        <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#000000' }}>Admin Panel</h1>
+        <p style={{ color: '#666666', marginBottom: '1.5rem' }}>Sign in to manage the site</p>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label className="block text-sm font-medium mb-2 text-black dark:text-white">Username</label>
-            <Input
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: '#000000' }}>Username</label>
+            <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="admin"
               data-testid="input-admin-username"
-              className="bg-gray-50 dark:bg-slate-700 text-black dark:text-white border-gray-300 dark:border-slate-600"
+              style={{ width: '100%', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#000000', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-black dark:text-white">Password</label>
-            <Input
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem', color: '#000000' }}>Password</label>
+            <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
               data-testid="input-admin-password"
-              className="bg-gray-50 dark:bg-slate-700 text-black dark:text-white border-gray-300 dark:border-slate-600"
+              style={{ width: '100%', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#000000', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
             />
           </div>
 
-          <Button
+          <button
             type="submit"
-            className="w-full"
             disabled={isLoading}
             data-testid="button-admin-login"
+            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#000000', color: '#ffffff', border: 'none', borderRadius: '0.375rem', fontWeight: '500', cursor: 'pointer' }}
           >
             {isLoading ? "Signing in..." : "Sign In"}
-          </Button>
+          </button>
         </form>
 
         {(failedAttempts > 0 || isBanned) && (
-          <div className="mt-4 p-3 border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 rounded-lg">
-            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+          <div style={{ marginTop: '1rem', padding: '0.75rem', border: '1px solid #fca5a5', backgroundColor: '#fef2f2', borderRadius: '0.5rem' }}>
+            <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#b91c1c' }}>
               {failedAttempts === 1 
                 ? "1 failed attempt since last successful login"
                 : `${failedAttempts} failed attempts since last successful login`}
             </p>
             {isBanned && (
-              <p className="text-xs text-red-700 dark:text-red-300 mt-2 font-medium">
+              <p style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '0.5rem', fontWeight: '500' }}>
                 ⏱ Banned for {Math.ceil(banTimeRemaining / 1000)} second{Math.ceil(banTimeRemaining / 1000) !== 1 ? 's' : ''}
               </p>
             )}
           </div>
         )}
 
-        <p className="text-xs text-gray-600 dark:text-gray-400 mt-6 text-center">
+        <p style={{ fontSize: '0.75rem', color: '#666666', marginTop: '1.5rem', textAlign: 'center' }}>
           Demo credentials: admin / admin123
         </p>
-      </Card>
+      </div>
     </div>
   );
 }
