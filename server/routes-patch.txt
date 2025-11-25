@@ -1,0 +1,35 @@
+  // Country blocking endpoints
+  app.get('/api/admin/blocked-countries', verifyAdmin, async (req, res) => {
+    try {
+      const blocked = await storage.getBlockedCountries();
+      res.json({ blockedCountries: blocked });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch blocked countries' });
+    }
+  });
+
+  app.post('/api/admin/block-country', verifyAdmin, async (req, res) => {
+    try {
+      const { countryCode, countryName, reason } = req.body;
+      if (!countryCode || !countryName || !reason) {
+        return res.status(400).json({ error: 'Missing countryCode, countryName or reason' });
+      }
+      await storage.blockCountry(countryCode, countryName, reason, (req as any).adminId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to block country' });
+    }
+  });
+
+  app.post('/api/admin/unblock-country', verifyAdmin, async (req, res) => {
+    try {
+      const { countryCode } = req.body;
+      if (!countryCode) {
+        return res.status(400).json({ error: 'Missing countryCode' });
+      }
+      await storage.unblockCountry(countryCode);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to unblock country' });
+    }
+  });
