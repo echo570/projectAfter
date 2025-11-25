@@ -43,6 +43,34 @@ function getCountryFromIP(ip: string): { country: string; flag: string } {
   return { country: 'Unknown', flag: '🌍' };
 }
 
+function generateRandomBotProfile() {
+  const botNicknames = ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Taylor', 'Casey', 'Drew', 'Sam', 'Jamie', 'Skyler', 'Quinn', 'Avery', 'Blake', 'River', 'Dakota', 'Phoenix', 'Sage', 'Nova', 'Zen'];
+  const genders = ['male', 'female', 'other'];
+  const countries = [
+    { name: 'United States', flag: '🇺🇸' }, { name: 'United Kingdom', flag: '🇬🇧' }, { name: 'Canada', flag: '🇨🇦' }, { name: 'Australia', flag: '🇦🇺' }, { name: 'New Zealand', flag: '🇳🇿' },
+    { name: 'Germany', flag: '🇩🇪' }, { name: 'France', flag: '🇫🇷' }, { name: 'Italy', flag: '🇮🇹' }, { name: 'Spain', flag: '🇪🇸' }, { name: 'Netherlands', flag: '🇳🇱' }, { name: 'Belgium', flag: '🇧🇪' }, { name: 'Austria', flag: '🇦🇹' }, { name: 'Switzerland', flag: '🇨🇭' },
+    { name: 'Sweden', flag: '🇸🇪' }, { name: 'Norway', flag: '🇳🇴' }, { name: 'Denmark', flag: '🇩🇰' }, { name: 'Finland', flag: '🇫🇮' }, { name: 'Poland', flag: '🇵🇱' }, { name: 'Czech Republic', flag: '🇨🇿' }, { name: 'Russia', flag: '🇷🇺' }, { name: 'Ukraine', flag: '🇺🇦' },
+    { name: 'Japan', flag: '🇯🇵' }, { name: 'China', flag: '🇨🇳' }, { name: 'India', flag: '🇮🇳' }, { name: 'Brazil', flag: '🇧🇷' }, { name: 'Mexico', flag: '🇲🇽' }, { name: 'South Africa', flag: '🇿🇦' }, { name: 'Singapore', flag: '🇸🇬' }, { name: 'Hong Kong', flag: '🇭🇰' },
+    { name: 'Thailand', flag: '🇹🇭' }, { name: 'South Korea', flag: '🇰🇷' }, { name: 'Philippines', flag: '🇵🇭' }, { name: 'Vietnam', flag: '🇻🇳' }, { name: 'Malaysia', flag: '🇲🇾' }, { name: 'Indonesia', flag: '🇮🇩' }, { name: 'Turkey', flag: '🇹🇷' }, { name: 'UAE', flag: '🇦🇪' },
+    { name: 'Saudi Arabia', flag: '🇸🇦' }, { name: 'Israel', flag: '🇮🇱' }, { name: 'Egypt', flag: '🇪🇬' }, { name: 'Nigeria', flag: '🇳🇬' }, { name: 'Kenya', flag: '🇰🇪' }, { name: 'Greece', flag: '🇬🇷' }, { name: 'Portugal', flag: '🇵🇹' }, { name: 'Iran', flag: '🇮🇷' },
+    { name: 'Pakistan', flag: '🇵🇰' }, { name: 'Bangladesh', flag: '🇧🇩' }, { name: 'Sri Lanka', flag: '🇱🇰' }, { name: 'Taiwan', flag: '🇹🇼' }, { name: 'Argentina', flag: '🇦🇷' }, { name: 'Chile', flag: '🇨🇱' }, { name: 'Colombia', flag: '🇨🇴' }, { name: 'Peru', flag: '🇵🇪' },
+  ];
+  
+  const randomIndex = (max: number) => Math.floor(Math.random() * max);
+  const nickname = botNicknames[randomIndex(botNicknames.length)];
+  const gender = genders[randomIndex(genders.length)];
+  const age = Math.floor(Math.random() * (50 - 18 + 1)) + 18;
+  const country = countries[randomIndex(countries.length)];
+  
+  return {
+    nickname,
+    gender,
+    age,
+    country: country.name,
+    countryFlag: country.flag,
+  };
+}
+
 const clients = new Map<string, ConnectedClient>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -209,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (fakeBotsEnabled && waitTime > WAIT_TIMEOUT_MS && !client.sessionId) {
         const botId = `bot-${randomUUID()}`;
+        const botProfile = generateRandomBotProfile();
         const session = await storage.createSession(user.id, botId);
 
         client.sessionId = session.id;
@@ -227,10 +256,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         sendToClient(user.id, {
           type: 'match',
-          data: { sessionId: session.id, initiator: true, isBot: true },
+          data: { sessionId: session.id, initiator: true, isBot: true, partnerProfile: botProfile },
         });
 
-        console.log(`Matched user ${user.id} with fake bot ${botId}`);
+        console.log(`Matched user ${user.id} with fake bot ${botId} - ${botProfile.nickname}, ${botProfile.age} ${botProfile.countryFlag}`);
         processed.add(user.id);
         continue;
       }
