@@ -109,12 +109,7 @@ export default function Chat() {
       
       // Show country blocking error
       if (event.code === 4001) {
-        toast({
-          title: "Access Denied",
-          description: event.reason || "Your country is blocked from accessing this service.",
-          variant: "destructive",
-        });
-        setLocation('/');
+        setLocation('/blocked-country');
         return;
       }
       
