@@ -5,6 +5,15 @@ import { z } from "zod";
 
 export type UserStatus = 'idle' | 'waiting' | 'in-chat';
 export type ChatSessionStatus = 'active' | 'ended';
+export type Gender = 'male' | 'female' | 'other';
+
+export interface UserProfile {
+  nickname: string;
+  gender: Gender;
+  age: number;
+  country: string;
+  countryFlag: string;
+}
 
 export const DEFAULT_INTERESTS = [
   'Gaming',
@@ -74,6 +83,15 @@ export const userInterestsSchema = z.object({
 });
 
 export type UserInterests = z.infer<typeof userInterestsSchema>;
+
+export const userProfileSchema = z.object({
+  nickname: z.string().min(1).max(20),
+  gender: z.enum(['male', 'female', 'other']),
+  age: z.number().min(13).max(120),
+  interests: z.array(z.string()).min(1).max(5),
+});
+
+export type UserProfileInput = z.infer<typeof userProfileSchema>;
 
 export interface OnlineStats {
   totalOnline: number;
@@ -146,7 +164,7 @@ export interface FakeUserCountSettings {
 }
 
 export interface WebSocketMessage {
-  type: 'find-match' | 'message' | 'typing' | 'match' | 'end' | 'partner-disconnected' | 'offer' | 'answer' | 'ice-candidate' | 'set-interests' | 'report-user';
+  type: 'find-match' | 'message' | 'typing' | 'match' | 'end' | 'partner-disconnected' | 'offer' | 'answer' | 'ice-candidate' | 'set-interests' | 'report-user' | 'set-profile';
   data?: any;
 }
 

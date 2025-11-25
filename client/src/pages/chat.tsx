@@ -16,7 +16,7 @@ import {
   User,
   Flag,
 } from "lucide-react";
-import type { Message, WebSocketMessage } from "@shared/schema";
+import type { Message, WebSocketMessage, UserProfile } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 type ChatStatus = 'waiting' | 'connected' | 'disconnected';
@@ -33,6 +33,7 @@ export default function Chat() {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
   const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<UserProfile | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -54,17 +55,17 @@ export default function Chat() {
 
   useEffect(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const interestsStr = sessionStorage.getItem('userInterests');
-      if (interestsStr) {
+      const profileStr = sessionStorage.getItem('userProfile');
+      if (profileStr) {
         try {
-          const interests = JSON.parse(interestsStr);
+          const profile = JSON.parse(profileStr);
           wsRef.current.send(JSON.stringify({
-            type: 'set-interests',
-            data: { interests },
+            type: 'set-profile',
+            data: profile,
           }));
-          sessionStorage.removeItem('userInterests');
+          sessionStorage.removeItem('userProfile');
         } catch (error) {
-          console.error('Failed to parse interests:', error);
+          console.error('Failed to parse profile:', error);
         }
       }
     }
@@ -114,10 +115,14 @@ export default function Chat() {
       case 'match':
         sessionIdRef.current = msg.data.sessionId;
         setPartnerId(msg.data.partnerId);
+        setPartnerProfile(msg.data.partnerProfile);
         setChatStatus('connected');
+        const partnerInfo = msg.data.partnerProfile 
+          ? `${msg.data.partnerProfile.nickname}, ${msg.data.partnerProfile.age} ${msg.data.partnerProfile.countryFlag}`
+          : "Stranger connected!";
         toast({
-          title: "Stranger connected!",
-          description: "You can now start chatting",
+          title: "Match found!",
+          description: partnerInfo,
         });
         if (msg.data.initiator) {
           await createOffer();
@@ -530,10 +535,16 @@ export default function Chat() {
       <div className="w-full lg:w-96 flex-1 lg:flex-1 flex flex-col border-l bg-background min-h-0">
         {/* Chat Header */}
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">Chat</h2>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${chatStatus === 'connected' ? 'bg-status-online' : 'bg-status-offline'}`} />
-            <span className="text-sm text-muted-foreground capitalize">{chatStatus}</span>
+            {partnerProfile && chatStatus === 'connected' ? (
+              <div className="text-sm">
+                <p className="font-semibold">{partnerProfile.nickname}, {partnerProfile.age}</p>
+                <p className="text-xs text-muted-foreground">{partnerProfile.countryFlag} {partnerProfile.country}</p>
+              </div>
+            ) : (
+              <span className="text-sm text-muted-foreground capitalize">{chatStatus}</span>
+            )}
           </div>
         </div>
 

@@ -66,9 +66,9 @@ export default function Landing() {
     }
   };
 
-  const handleInterestsSelected = (interests: string[]) => {
+  const handleInterestsSelected = (data: { nickname: string; gender: string; age: number; interests: string[] }) => {
     setIsStarting(true);
-    sessionStorage.setItem('userInterests', JSON.stringify(interests));
+    sessionStorage.setItem('userProfile', JSON.stringify(data));
     setTimeout(() => {
       setLocation('/chat');
     }, 100);

@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface InterestsSelectorProps {
-  onSelect: (interests: string[]) => void;
+  onSelect: (data: { nickname: string; gender: string; age: number; interests: string[] }) => void;
   isLoading?: boolean;
 }
 
@@ -13,6 +14,9 @@ export function InterestsSelector({ onSelect, isLoading = false }: InterestsSele
   const [selected, setSelected] = useState<string[]>([]);
   const [interestsList, setInterestsList] = useState<string[]>([]);
   const [listLoading, setListLoading] = useState(true);
+  const [nickname, setNickname] = useState('');
+  const [gender, setGender] = useState('');
+  const [age, setAge] = useState('');
 
   useEffect(() => {
     loadInterests();
@@ -45,16 +49,74 @@ export function InterestsSelector({ onSelect, isLoading = false }: InterestsSele
   };
 
   const handleContinue = () => {
-    if (selected.length > 0) {
-      onSelect(selected);
+    if (selected.length > 0 && nickname.trim() && gender && age) {
+      onSelect({
+        nickname: nickname.trim(),
+        gender,
+        age: parseInt(age),
+        interests: selected,
+      });
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">What are your interests?</h2>
+        <h2 className="text-2xl font-bold mb-2">Create Your Profile</h2>
         <p className="text-muted-foreground">
+          Tell us about yourself to match with people
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium">Nickname</label>
+          <Input
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value.slice(0, 20))}
+            placeholder="Choose a nickname"
+            disabled={isLoading}
+            data-testid="input-nickname"
+            maxLength={20}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium">Gender</label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              disabled={isLoading}
+              className="w-full px-3 py-2 border rounded-md text-sm bg-background"
+              data-testid="select-gender"
+            >
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Age</label>
+            <Input
+              type="number"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder="Age"
+              disabled={isLoading}
+              data-testid="input-age"
+              min={13}
+              max={120}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-3">What are your interests?</h3>
+        <p className="text-muted-foreground text-sm mb-3">
           Select up to 5 interests to match with people who share them
         </p>
       </div>
@@ -97,16 +159,16 @@ export function InterestsSelector({ onSelect, isLoading = false }: InterestsSele
       <Button
         size="lg"
         onClick={handleContinue}
-        disabled={selected.length === 0 || isLoading}
+        disabled={selected.length === 0 || !nickname.trim() || !gender || !age || isLoading}
         className="w-full"
-        data-testid="button-interests-continue"
+        data-testid="button-profile-continue"
       >
-        {isLoading ? "Starting..." : `Start Chatting (${selected.length}/5 selected)`}
+        {isLoading ? "Starting..." : "Start Chatting"}
       </Button>
 
-      {selected.length === 0 && (
+      {(!nickname.trim() || !gender || !age || selected.length === 0) && (
         <p className="text-sm text-muted-foreground text-center">
-          Select at least 1 interest to continue
+          Complete all fields to continue
         </p>
       )}
     </div>

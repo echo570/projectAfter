@@ -19,6 +19,28 @@ interface ConnectedClient {
   ipAddress: string;
   waitStartTime?: number;
   isBot?: boolean;
+  profile?: { nickname: string; gender: string; age: number; country: string; countryFlag: string };
+}
+
+function getCountryFromIP(ip: string): { country: string; flag: string } {
+  const ipCountryMap: Record<string, { country: string; flag: string }> = {
+    '127.0.0.1': { country: 'Local', flag: '🌐' },
+    '::1': { country: 'Local', flag: '🌐' },
+  };
+  
+  if (ipCountryMap[ip]) return ipCountryMap[ip];
+  
+  const countryFlags: Record<string, string> = {
+    'US': '🇺🇸', 'GB': '🇬🇧', 'CA': '🇨🇦', 'AU': '🇦🇺', 'NZ': '🇳🇿',
+    'DE': '🇩🇪', 'FR': '🇫🇷', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱', 'BE': '🇧🇪', 'AT': '🇦🇹', 'CH': '🇨🇭',
+    'SE': '🇸🇪', 'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'RU': '🇷🇺', 'UA': '🇺🇦',
+    'JP': '🇯🇵', 'CN': '🇨🇳', 'IN': '🇮🇳', 'BR': '🇧🇷', 'MX': '🇲🇽', 'ZA': '🇿🇦', 'SG': '🇸🇬', 'HK': '🇭🇰',
+    'TH': '🇹🇭', 'KR': '🇰🇷', 'PH': '🇵🇭', 'VN': '🇻🇳', 'MY': '🇲🇾', 'ID': '🇮🇩', 'TR': '🇹🇷', 'AE': '🇦🇪',
+    'SA': '🇸🇦', 'IL': '🇮🇱', 'EG': '🇪🇬', 'NG': '🇳🇬', 'KE': '🇰🇪', 'GR': '🇬🇷', 'PT': '🇵🇹', 'IR': '🇮🇷',
+    'PK': '🇵🇰', 'BD': '🇧🇩', 'LK': '🇱🇰', 'TW': '🇹🇼', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪',
+  };
+  
+  return { country: 'Unknown', flag: '🌍' };
 }
 
 const clients = new Map<string, ConnectedClient>();
@@ -99,6 +121,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: userId,
             status: 'idle',
             interests: client.interests,
+            connectedAt: Date.now(),
+          });
+        }
+        break;
+
+      case 'set-profile':
+        const profileClient = clients.get(userId);
+        if (profileClient && message.data) {
+          const { country, flag } = getCountryFromIP(profileClient.ipAddress);
+          profileClient.profile = {
+            nickname: message.data.nickname,
+            gender: message.data.gender,
+            age: message.data.age,
+            country,
+            countryFlag: flag,
+          };
+          profileClient.interests = message.data.interests || [];
+          await storage.setUserState(userId, {
+            id: userId,
+            status: 'idle',
+            interests: profileClient.interests,
             connectedAt: Date.now(),
           });
         }
@@ -282,12 +325,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         sendToClient(userId, {
           type: 'match',
-          data: { sessionId: session.id, initiator: true },
+          data: { sessionId: session.id, initiator: true, partnerProfile: partner.profile },
         });
 
         sendToClient(partnerId, {
           type: 'match',
-          data: { sessionId: session.id, initiator: false },
+          data: { sessionId: session.id, initiator: false, partnerProfile: client.profile },
         });
 
         console.log(`Matched users ${userId} and ${partnerId} in session ${session.id}`);
