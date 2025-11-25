@@ -36,6 +36,10 @@ export default function AdminDashboard() {
   const [shownFailedAttemptsWarning, setShownFailedAttemptsWarning] = useState(false);
   const [currentAdminIP, setCurrentAdminIP] = useState("");
   const [permanentAdminIP, setPermanentAdminIP] = useState<string | null>(null);
+  const [blockedCountries, setBlockedCountries] = useState<any[]>([]);
+  const [newBlockCountryCode, setNewBlockCountryCode] = useState("");
+  const [newBlockCountryName, setNewBlockCountryName] = useState("");
+  const [newBlockReason, setNewBlockReason] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -60,12 +64,14 @@ export default function AdminDashboard() {
     loadMonitoring();
     loadAnalytics();
     loadFakeUserSettings();
+    loadBlockedCountries();
   };
 
   const loadLiveData = async () => {
     loadBans();
     loadMonitoring();
     loadAnalytics();
+    loadBlockedCountries();
   };
 
   const checkFailedLoginAttempts = async () => {
@@ -241,6 +247,16 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadBlockedCountries = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/blocked-countries");
+      const data = await response.json();
+      setBlockedCountries(data.blockedCountries || []);
+    } catch (error) {
+      console.error("Failed to load blocked countries");
+    }
+  };
+
   const loadMonitoring = async () => {
     try {
       const response = await apiRequest("GET", "/api/admin/monitoring");
@@ -294,6 +310,44 @@ export default function AdminDashboard() {
       loadBans();
     } catch (error) {
       toast({ title: "Error", description: "Failed to unban IP", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBlockCountry = async () => {
+    if (!newBlockCountryCode.trim() || !newBlockCountryName.trim() || !newBlockReason.trim()) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/block-country", {
+        countryCode: newBlockCountryCode.toUpperCase(),
+        countryName: newBlockCountryName,
+        reason: newBlockReason,
+      });
+      setNewBlockCountryCode("");
+      setNewBlockCountryName("");
+      setNewBlockReason("");
+      toast({ title: "Success", description: "Country blocked successfully" });
+      loadBlockedCountries();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to block country", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnblockCountry = async (countryCode: string) => {
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/unblock-country", { countryCode });
+      toast({ title: "Success", description: "Country unblocked successfully" });
+      loadBlockedCountries();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to unblock country", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -681,6 +735,85 @@ export default function AdminDashboard() {
             >
               Update Settings
             </Button>
+          </div>
+        </Card>
+
+        {/* Country Blocking Section */}
+        <Card className="p-6 mt-6 border-orange-500/30">
+          <div className="flex items-center gap-2 mb-6">
+            <Ban className="w-6 h-6 text-orange-600" />
+            <h2 className="text-2xl font-bold">Country Blocking</h2>
+          </div>
+
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">Block Countries by IP Geolocation</h3>
+            <div className="p-4 bg-secondary rounded-lg">
+              <div className="space-y-3">
+                <Input
+                  type="text"
+                  value={newBlockCountryCode}
+                  onChange={(e) => setNewBlockCountryCode(e.target.value)}
+                  placeholder="Country code (e.g., US, CN, RU)"
+                  data-testid="input-block-country-code"
+                  disabled={isLoading}
+                />
+                <Input
+                  type="text"
+                  value={newBlockCountryName}
+                  onChange={(e) => setNewBlockCountryName(e.target.value)}
+                  placeholder="Country name (e.g., United States)"
+                  data-testid="input-block-country-name"
+                  disabled={isLoading}
+                />
+                <Input
+                  type="text"
+                  value={newBlockReason}
+                  onChange={(e) => setNewBlockReason(e.target.value)}
+                  placeholder="Reason for blocking"
+                  data-testid="input-block-reason"
+                  disabled={isLoading}
+                />
+                <Button
+                  onClick={handleBlockCountry}
+                  disabled={isLoading}
+                  className="w-full"
+                  data-testid="button-block-country"
+                >
+                  Block Country
+                </Button>
+              </div>
+            </div>
+
+            {/* Blocked Countries List */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium mb-3">Blocked Countries ({blockedCountries.length})</label>
+              {blockedCountries.length > 0 ? (
+                <div className="space-y-2">
+                  {blockedCountries.map((country) => (
+                    <div key={country.countryCode} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                      <div>
+                        <p className="font-semibold text-sm">{country.countryName} ({country.countryCode})</p>
+                        <p className="text-xs text-muted-foreground">{country.reason}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Blocked: {new Date(country.blockedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUnblockCountry(country.countryCode)}
+                        disabled={isLoading}
+                        data-testid={`button-unblock-country-${country.countryCode}`}
+                      >
+                        Unblock
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No blocked countries</p>
+              )}
+            </div>
           </div>
         </Card>
 
