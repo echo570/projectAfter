@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import type { WebSocketMessage, OnlineStats } from "@shared/schema";
+import type { WebSocketMessage, OnlineStats, AdminLogin } from "@shared/schema";
+import { adminLoginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 interface ConnectedClient {
@@ -379,6 +380,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       inChat: allUsers.filter(c => c.sessionId).length,
     };
     res.json(stats);
+  });
+
+  // Public endpoint to get available interests
+  app.get('/api/interests', async (req, res) => {
+    const interests = await storage.getInterests();
+    res.json({ interests });
+  });
+
+  // Admin login endpoint
+  app.post('/api/admin/login', async (req, res) => {
+    try {
+      const body = adminLoginSchema.parse(req.body);
+      const admin = await storage.getAdminByUsername(body.username);
+      
+      // Simple password check (in production, use bcrypt)
+      if (admin && admin.passwordHash === body.password) {
+        const session = await storage.createAdminSession(admin.id);
+        res.json({ token: session.token, adminId: admin.id });
+      } else {
+        res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } catch (error) {
+      res.status(400).json({ error: 'Invalid request' });
+    }
+  });
+
+  // Middleware to verify admin token
+  const verifyAdmin = async (req: any, res: any, next: any) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const session = await storage.getAdminSession(token);
+    if (!session) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    req.adminId = session.adminId;
+    next();
+  };
+
+  // Get interests (admin only)
+  app.get('/api/admin/interests', verifyAdmin, async (req, res) => {
+    const interests = await storage.getInterests();
+    res.json({ interests });
+  });
+
+  // Update interests (admin only)
+  app.post('/api/admin/interests', verifyAdmin, async (req, res) => {
+    try {
+      const { interests } = req.body;
+      if (!Array.isArray(interests) || interests.some(i => typeof i !== 'string')) {
+        return res.status(400).json({ error: 'Invalid interests format' });
+      }
+      
+      await storage.setInterests(interests);
+      res.json({ success: true, interests });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update interests' });
+    }
   });
 
   return httpServer;
