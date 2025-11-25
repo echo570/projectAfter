@@ -1,4 +1,4 @@
-import type { ChatSession, UserState, Admin, AdminSession } from "@shared/schema";
+import type { ChatSession, UserState, Admin, AdminSession, BannedUser, ChatMonitoringSession, SiteAnalytics } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -15,6 +15,15 @@ export interface IStorage {
   getAdminSession(token: string): Promise<AdminSession | undefined>;
   getInterests(): Promise<string[]>;
   setInterests(interests: string[]): Promise<void>;
+  // Ban management
+  banUser(userId: string, reason: string, adminId: string): Promise<void>;
+  unbanUser(userId: string): Promise<void>;
+  getBannedUsers(): Promise<BannedUser[]>;
+  isUserBanned(userId: string): Promise<boolean>;
+  // Chat monitoring
+  getAllActiveSessions(): Promise<ChatMonitoringSession[]>;
+  // Analytics
+  getAnalytics(): Promise<SiteAnalytics>;
 }
 
 export class MemStorage implements IStorage {
@@ -23,12 +32,16 @@ export class MemStorage implements IStorage {
   private adminSessions: Map<string, AdminSession>;
   private admins: Map<string, Admin>;
   private interests: string[];
+  private bannedUsers: Map<string, BannedUser>;
+  private sessionDurations: { sessionId: string; duration: number }[];
 
   constructor() {
     this.sessions = new Map();
     this.userStates = new Map();
     this.adminSessions = new Map();
     this.admins = new Map();
+    this.bannedUsers = new Map();
+    this.sessionDurations = [];
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
       'Fitness', 'Food', 'Photography', 'Cooking', 'Fashion', 'DIY', 'Pets',
@@ -118,6 +131,64 @@ export class MemStorage implements IStorage {
 
   async setInterests(interests: string[]): Promise<void> {
     this.interests = [...interests];
+  }
+
+  async banUser(userId: string, reason: string, adminId: string): Promise<void> {
+    const ban: BannedUser = {
+      id: randomUUID(),
+      userId,
+      reason,
+      bannedAt: Date.now(),
+      bannedBy: adminId,
+    };
+    this.bannedUsers.set(userId, ban);
+  }
+
+  async unbanUser(userId: string): Promise<void> {
+    this.bannedUsers.delete(userId);
+  }
+
+  async getBannedUsers(): Promise<BannedUser[]> {
+    return Array.from(this.bannedUsers.values());
+  }
+
+  async isUserBanned(userId: string): Promise<boolean> {
+    return this.bannedUsers.has(userId);
+  }
+
+  async getAllActiveSessions(): Promise<ChatMonitoringSession[]> {
+    const active: ChatMonitoringSession[] = [];
+    this.sessions.forEach((session) => {
+      if (session.status === 'active') {
+        active.push({
+          sessionId: session.id,
+          user1Id: session.user1Id,
+          user2Id: session.user2Id,
+          status: session.status,
+          startedAt: session.startedAt,
+          duration: Date.now() - session.startedAt,
+        });
+      }
+    });
+    return active;
+  }
+
+  async getAnalytics(): Promise<SiteAnalytics> {
+    const allUsers = Array.from(this.userStates.values());
+    const activeSessions = Array.from(this.sessions.values()).filter(s => s.status === 'active');
+    const avgDuration = this.sessionDurations.length > 0
+      ? this.sessionDurations.reduce((sum, s) => sum + s.duration, 0) / this.sessionDurations.length
+      : 0;
+
+    return {
+      totalOnline: allUsers.length,
+      waiting: allUsers.filter(u => u.status === 'waiting').length,
+      inChat: allUsers.filter(u => u.status === 'in-chat').length,
+      totalSessions: this.sessions.size,
+      totalBanned: this.bannedUsers.size,
+      avgSessionDuration: Math.round(avgDuration / 1000), // in seconds
+      peakTime: new Date().toLocaleTimeString(),
+    };
   }
 }
 

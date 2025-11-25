@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Plus, LogOut } from "lucide-react";
+import { X, Plus, LogOut, Users, Activity, BarChart3, Ban } from "lucide-react";
 
 interface Interest {
   name: string;
@@ -18,6 +18,11 @@ export default function AdminDashboard() {
   const [interests, setInterests] = useState<string[]>([]);
   const [newInterest, setNewInterest] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [bannedUsers, setBannedUsers] = useState<any[]>([]);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [newBanUserId, setNewBanUserId] = useState("");
+  const [newBanReason, setNewBanReason] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -25,8 +30,17 @@ export default function AdminDashboard() {
       setLocation("/admin/login");
       return;
     }
-    loadInterests();
+    loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  const loadData = async () => {
+    loadInterests();
+    loadBans();
+    loadMonitoring();
+    loadAnalytics();
+  };
 
   const loadInterests = async () => {
     try {
@@ -98,6 +112,69 @@ export default function AdminDashboard() {
         description: "Failed to remove interest",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadBans = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/bans");
+      const data = await response.json();
+      setBannedUsers(data.banned || []);
+    } catch (error) {
+      console.error("Failed to load bans");
+    }
+  };
+
+  const loadMonitoring = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/monitoring");
+      const data = await response.json();
+      setActiveSessions(data.sessions || []);
+    } catch (error) {
+      console.error("Failed to load sessions");
+    }
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/analytics");
+      const data = await response.json();
+      setAnalytics(data);
+    } catch (error) {
+      console.error("Failed to load analytics");
+    }
+  };
+
+  const handleBanUser = async () => {
+    if (!newBanUserId.trim() || !newBanReason.trim()) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/ban", { userId: newBanUserId, reason: newBanReason });
+      setNewBanUserId("");
+      setNewBanReason("");
+      toast({ title: "Success", description: "User banned successfully" });
+      loadBans();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to ban user", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnban = async (userId: string) => {
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/unban", { userId });
+      toast({ title: "Success", description: "User unbanned successfully" });
+      loadBans();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to unban user", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -186,27 +263,127 @@ export default function AdminDashboard() {
           </div>
         </Card>
 
-        {/* Moderation Section */}
-        <Card className="p-6 mt-6">
-          <h2 className="text-2xl font-bold mb-4">Moderation Tools</h2>
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Advanced moderation features including user bans, chat filtering, and content review are coming soon.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Analytics Section */}
+        {analytics && (
+          <Card className="p-6 mt-6">
+            <div className="flex items-center gap-2 mb-6">
+              <BarChart3 className="w-6 h-6" />
+              <h2 className="text-2xl font-bold">Site Analytics</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="p-4 bg-secondary rounded-lg">
-                <h3 className="font-semibold mb-2">Ban Management</h3>
-                <p className="text-sm text-muted-foreground">Coming soon</p>
+                <p className="text-sm text-muted-foreground">Online Users</p>
+                <p className="text-3xl font-bold">{analytics.totalOnline}</p>
               </div>
               <div className="p-4 bg-secondary rounded-lg">
-                <h3 className="font-semibold mb-2">Chat Monitoring</h3>
-                <p className="text-sm text-muted-foreground">Coming soon</p>
+                <p className="text-sm text-muted-foreground">Waiting</p>
+                <p className="text-3xl font-bold">{analytics.waiting}</p>
               </div>
               <div className="p-4 bg-secondary rounded-lg">
-                <h3 className="font-semibold mb-2">Site Analytics</h3>
-                <p className="text-sm text-muted-foreground">Coming soon</p>
+                <p className="text-sm text-muted-foreground">In Chat</p>
+                <p className="text-3xl font-bold">{analytics.inChat}</p>
+              </div>
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground">Total Sessions</p>
+                <p className="text-3xl font-bold">{analytics.totalSessions}</p>
+              </div>
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground">Banned Users</p>
+                <p className="text-3xl font-bold">{analytics.totalBanned}</p>
+              </div>
+              <div className="p-4 bg-secondary rounded-lg">
+                <p className="text-sm text-muted-foreground">Avg Duration</p>
+                <p className="text-3xl font-bold">{analytics.avgSessionDuration}s</p>
               </div>
             </div>
+          </Card>
+        )}
+
+        {/* Chat Monitoring Section */}
+        <Card className="p-6 mt-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Activity className="w-6 h-6" />
+            <h2 className="text-2xl font-bold">Chat Monitoring</h2>
+          </div>
+          {activeSessions.length > 0 ? (
+            <div className="space-y-3">
+              {activeSessions.map((session) => (
+                <div key={session.sessionId} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+                  <div>
+                    <p className="font-semibold text-sm">Session: {session.sessionId.slice(0, 8)}...</p>
+                    <p className="text-xs text-muted-foreground">Duration: {Math.round(session.duration / 1000)}s</p>
+                  </div>
+                  <Badge variant="default">Active</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">No active chat sessions</p>
+          )}
+        </Card>
+
+        {/* Ban Management Section */}
+        <Card className="p-6 mt-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Ban className="w-6 h-6" />
+            <h2 className="text-2xl font-bold">Ban Management</h2>
+          </div>
+
+          <div className="mb-8 p-4 bg-secondary rounded-lg">
+            <label className="block text-sm font-medium mb-3">Ban a User</label>
+            <div className="space-y-3">
+              <Input
+                type="text"
+                value={newBanUserId}
+                onChange={(e) => setNewBanUserId(e.target.value)}
+                placeholder="User ID to ban"
+                data-testid="input-ban-userid"
+                disabled={isLoading}
+              />
+              <Input
+                type="text"
+                value={newBanReason}
+                onChange={(e) => setNewBanReason(e.target.value)}
+                placeholder="Reason for ban"
+                data-testid="input-ban-reason"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={handleBanUser}
+                disabled={isLoading}
+                className="w-full"
+                data-testid="button-ban-user"
+              >
+                Ban User
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-3">Banned Users ({bannedUsers.length})</label>
+            {bannedUsers.length > 0 ? (
+              <div className="space-y-2">
+                {bannedUsers.map((user) => (
+                  <div key={user.userId} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                    <div>
+                      <p className="font-mono text-sm">{user.userId.slice(0, 12)}...</p>
+                      <p className="text-xs text-muted-foreground">{user.reason}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleUnban(user.userId)}
+                      disabled={isLoading}
+                      data-testid={`button-unban-${user.userId}`}
+                    >
+                      Unban
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No banned users</p>
+            )}
           </div>
         </Card>
       </div>

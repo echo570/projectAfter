@@ -94,6 +94,33 @@ export interface AdminSession {
   expiresAt: number;
 }
 
+export interface BannedUser {
+  id: string;
+  userId: string;
+  reason: string;
+  bannedAt: number;
+  bannedBy: string;
+}
+
+export interface ChatMonitoringSession {
+  sessionId: string;
+  user1Id: string;
+  user2Id: string;
+  status: string;
+  startedAt: number;
+  duration: number;
+}
+
+export interface SiteAnalytics {
+  totalOnline: number;
+  waiting: number;
+  inChat: number;
+  totalSessions: number;
+  totalBanned: number;
+  avgSessionDuration: number;
+  peakTime: string;
+}
+
 export interface WebSocketMessage {
   type: 'find-match' | 'message' | 'typing' | 'match' | 'end' | 'partner-disconnected' | 'offer' | 'answer' | 'ice-candidate' | 'set-interests';
   data?: any;

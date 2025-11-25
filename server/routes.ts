@@ -6,6 +6,8 @@ import type { WebSocketMessage, OnlineStats, AdminLogin } from "@shared/schema";
 import { adminLoginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+let activeSessions: Map<string, { user1Id: string; user2Id: string; startedAt: number }> = new Map();
+
 interface ConnectedClient {
   ws: WebSocket;
   userId: string;
@@ -408,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to verify admin token
   const verifyAdmin = async (req: any, res: any, next: any) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = req.headers.authorization?.replace('Bearer ', '') || req.cookies?.adminToken;
     if (!token) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -418,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: 'Invalid token' });
     }
     
-    req.adminId = session.adminId;
+    (req as any).adminId = session.adminId;
     next();
   };
 
@@ -440,6 +442,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, interests });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update interests' });
+    }
+  });
+
+  // Ban management endpoints
+  app.post('/api/admin/ban', verifyAdmin, async (req, res) => {
+    try {
+      const { userId, reason } = req.body;
+      if (!userId || !reason) {
+        return res.status(400).json({ error: 'Missing userId or reason' });
+      }
+      
+      await storage.banUser(userId, reason, (req as any).adminId);
+      
+      const client = clients.get(userId);
+      if (client) {
+        client.ws.close();
+        clients.delete(userId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to ban user' });
+    }
+  });
+
+  app.post('/api/admin/unban', verifyAdmin, async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: 'Missing userId' });
+      }
+      
+      await storage.unbanUser(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to unban user' });
+    }
+  });
+
+  app.get('/api/admin/bans', verifyAdmin, async (req, res) => {
+    try {
+      const banned = await storage.getBannedUsers();
+      res.json({ banned });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch banned users' });
+    }
+  });
+
+  // Chat monitoring endpoints
+  app.get('/api/admin/monitoring', verifyAdmin, async (req, res) => {
+    try {
+      const sessions = await storage.getAllActiveSessions();
+      res.json({ sessions });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+  });
+
+  // Analytics endpoint
+  app.get('/api/admin/analytics', verifyAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch analytics' });
     }
   });
 
