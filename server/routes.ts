@@ -10,6 +10,23 @@ import geoip from 'geoip-lite';
 
 let activeSessions: Map<string, { user1Id: string; user2Id: string; startedAt: number }> = new Map();
 
+const logBuffer: Array<{ timestamp: string; message: string }> = [];
+const MAX_LOGS = 500;
+
+function addLog(message: string) {
+  const timestamp = new Date().toLocaleTimeString();
+  logBuffer.push({ timestamp, message });
+  if (logBuffer.length > MAX_LOGS) {
+    logBuffer.shift();
+  }
+}
+
+const originalLog = console.log;
+console.log = (...args) => {
+  originalLog(...args);
+  addLog(args.join(' '));
+};
+
 interface ConnectedClient {
   ws: WebSocket;
   userId: string;
@@ -965,6 +982,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analytics);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
+  });
+
+  // Logs endpoint
+  app.get('/api/admin/logs', verifyAdmin, async (req, res) => {
+    try {
+      res.json({ logs: logBuffer });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch logs' });
     }
   });
 
