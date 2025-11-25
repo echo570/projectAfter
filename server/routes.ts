@@ -594,6 +594,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if user's country is blocked
+  app.get('/api/check-country-status', async (req, res) => {
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    try {
+      const geoInfo = getCountryFromIP(ipAddress);
+      const blockedCountries = await storage.getBlockedCountries();
+      const isBlocked = blockedCountries.some(c => c.countryCode === geoInfo.countryCode);
+      res.json({ 
+        country: geoInfo.country,
+        countryCode: geoInfo.countryCode,
+        isBlocked
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to check country status' });
+    }
+  });
+
   // Public endpoint to get available interests
   app.get('/api/interests', async (req, res) => {
     const interests = await storage.getInterests();

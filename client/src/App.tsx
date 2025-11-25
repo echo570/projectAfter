@@ -8,6 +8,7 @@ import Chat from "@/pages/chat";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import BlockedCountry from "@/pages/blocked-country";
+import { useState, useEffect } from "react";
 
 function Router() {
   return (
@@ -22,6 +23,43 @@ function Router() {
 }
 
 function App() {
+  const [isCountryBlocked, setIsCountryBlocked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkCountry = async () => {
+      try {
+        const response = await fetch('/api/check-country-status');
+        const data = await response.json();
+        setIsCountryBlocked(data.isBlocked);
+      } catch (error) {
+        console.error('Failed to check country status:', error);
+        setIsCountryBlocked(false);
+      }
+    };
+
+    checkCountry();
+  }, []);
+
+  if (isCountryBlocked === null) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="flex items-center justify-center min-h-screen bg-background" />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  if (isCountryBlocked) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <BlockedCountry />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
