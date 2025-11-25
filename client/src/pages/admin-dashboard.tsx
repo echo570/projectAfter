@@ -19,10 +19,12 @@ export default function AdminDashboard() {
   const [newInterest, setNewInterest] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
+  const [bannedIPs, setBannedIPs] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
-  const [newBanUserId, setNewBanUserId] = useState("");
+  const [newBanIP, setNewBanIP] = useState("");
   const [newBanReason, setNewBanReason] = useState("");
+  const [banDuration, setBanDuration] = useState("30");
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -121,7 +123,8 @@ export default function AdminDashboard() {
     try {
       const response = await apiRequest("GET", "/api/admin/bans");
       const data = await response.json();
-      setBannedUsers(data.banned || []);
+      setBannedUsers(data.bannedUsers || []);
+      setBannedIPs(data.bannedIPs || []);
     } catch (error) {
       console.error("Failed to load bans");
     }
@@ -147,34 +150,39 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleBanUser = async () => {
-    if (!newBanUserId.trim() || !newBanReason.trim()) {
+  const handleBanIP = async () => {
+    if (!newBanIP.trim() || !newBanReason.trim()) {
       toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/admin/ban", { userId: newBanUserId, reason: newBanReason });
-      setNewBanUserId("");
+      await apiRequest("POST", "/api/admin/ban-ip", {
+        ipAddress: newBanIP,
+        reason: newBanReason,
+        durationDays: parseInt(banDuration) || 30,
+      });
+      setNewBanIP("");
       setNewBanReason("");
-      toast({ title: "Success", description: "User banned successfully" });
+      setBanDuration("30");
+      toast({ title: "Success", description: "IP banned successfully" });
       loadBans();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to ban user", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to ban IP", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleUnban = async (userId: string) => {
+  const handleUnbanIP = async (ipAddress: string) => {
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/admin/unban", { userId });
-      toast({ title: "Success", description: "User unbanned successfully" });
+      await apiRequest("POST", "/api/admin/unban-ip", { ipAddress });
+      toast({ title: "Success", description: "IP unbanned successfully" });
       loadBans();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to unban user", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to unban IP", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -329,61 +337,83 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-bold">Ban Management</h2>
           </div>
 
-          <div className="mb-8 p-4 bg-secondary rounded-lg">
-            <label className="block text-sm font-medium mb-3">Ban a User</label>
-            <div className="space-y-3">
-              <Input
-                type="text"
-                value={newBanUserId}
-                onChange={(e) => setNewBanUserId(e.target.value)}
-                placeholder="User ID to ban"
-                data-testid="input-ban-userid"
-                disabled={isLoading}
-              />
-              <Input
-                type="text"
-                value={newBanReason}
-                onChange={(e) => setNewBanReason(e.target.value)}
-                placeholder="Reason for ban"
-                data-testid="input-ban-reason"
-                disabled={isLoading}
-              />
-              <Button
-                onClick={handleBanUser}
-                disabled={isLoading}
-                className="w-full"
-                data-testid="button-ban-user"
-              >
-                Ban User
-              </Button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-3">Banned Users ({bannedUsers.length})</label>
-            {bannedUsers.length > 0 ? (
-              <div className="space-y-2">
-                {bannedUsers.map((user) => (
-                  <div key={user.userId} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                    <div>
-                      <p className="font-mono text-sm">{user.userId.slice(0, 12)}...</p>
-                      <p className="text-xs text-muted-foreground">{user.reason}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleUnban(user.userId)}
-                      disabled={isLoading}
-                      data-testid={`button-unban-${user.userId}`}
-                    >
-                      Unban
-                    </Button>
-                  </div>
-                ))}
+          {/* Ban IP (Primary for anonymous users) */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4">Ban by IP Address</h3>
+            <div className="p-4 bg-secondary rounded-lg">
+              <div className="space-y-3">
+                <Input
+                  type="text"
+                  value={newBanIP}
+                  onChange={(e) => setNewBanIP(e.target.value)}
+                  placeholder="IP address to ban (e.g., 192.168.1.1)"
+                  data-testid="input-ban-ip"
+                  disabled={isLoading}
+                />
+                <Input
+                  type="text"
+                  value={newBanReason}
+                  onChange={(e) => setNewBanReason(e.target.value)}
+                  placeholder="Reason for ban"
+                  data-testid="input-ban-reason"
+                  disabled={isLoading}
+                />
+                <div>
+                  <label className="block text-sm font-medium mb-2">Ban Duration (days)</label>
+                  <Input
+                    type="number"
+                    value={banDuration}
+                    onChange={(e) => setBanDuration(e.target.value)}
+                    placeholder="30"
+                    min="1"
+                    max="365"
+                    data-testid="input-ban-duration"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button
+                  onClick={handleBanIP}
+                  disabled={isLoading}
+                  className="w-full"
+                  data-testid="button-ban-ip"
+                >
+                  Ban IP Address
+                </Button>
               </div>
-            ) : (
-              <p className="text-muted-foreground text-center py-4">No banned users</p>
-            )}
+            </div>
+
+            {/* Banned IPs List */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium mb-3">Banned IP Addresses ({bannedIPs.length})</label>
+              {bannedIPs.length > 0 ? (
+                <div className="space-y-2">
+                  {bannedIPs.map((ban) => (
+                    <div key={ban.ipAddress} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
+                      <div>
+                        <p className="font-mono text-sm font-semibold">{ban.ipAddress}</p>
+                        <p className="text-xs text-muted-foreground">{ban.reason}</p>
+                        {ban.expiresAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Expires: {new Date(ban.expiresAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUnbanIP(ban.ipAddress)}
+                        disabled={isLoading}
+                        data-testid={`button-unban-ip-${ban.ipAddress}`}
+                      >
+                        Unban
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-4">No banned IPs</p>
+              )}
+            </div>
           </div>
         </Card>
       </div>

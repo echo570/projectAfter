@@ -1,4 +1,4 @@
-import type { ChatSession, UserState, Admin, AdminSession, BannedUser, ChatMonitoringSession, SiteAnalytics } from "@shared/schema";
+import type { ChatSession, UserState, Admin, AdminSession, BannedUser, BannedIP, ChatMonitoringSession, SiteAnalytics } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -24,6 +24,11 @@ export interface IStorage {
   getAllActiveSessions(): Promise<ChatMonitoringSession[]>;
   // Analytics
   getAnalytics(): Promise<SiteAnalytics>;
+  // IP-based bans
+  banIP(ipAddress: string, reason: string, adminId: string, durationDays?: number): Promise<void>;
+  unbanIP(ipAddress: string): Promise<void>;
+  getBannedIPs(): Promise<BannedIP[]>;
+  isIPBanned(ipAddress: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -33,6 +38,7 @@ export class MemStorage implements IStorage {
   private admins: Map<string, Admin>;
   private interests: string[];
   private bannedUsers: Map<string, BannedUser>;
+  private bannedIPs: Map<string, BannedIP>;
   private sessionDurations: { sessionId: string; duration: number }[];
 
   constructor() {
@@ -41,6 +47,7 @@ export class MemStorage implements IStorage {
     this.adminSessions = new Map();
     this.admins = new Map();
     this.bannedUsers = new Map();
+    this.bannedIPs = new Map();
     this.sessionDurations = [];
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
@@ -185,10 +192,53 @@ export class MemStorage implements IStorage {
       waiting: allUsers.filter(u => u.status === 'waiting').length,
       inChat: allUsers.filter(u => u.status === 'in-chat').length,
       totalSessions: this.sessions.size,
-      totalBanned: this.bannedUsers.size,
-      avgSessionDuration: Math.round(avgDuration / 1000), // in seconds
+      totalBanned: this.bannedUsers.size + this.bannedIPs.size,
+      avgSessionDuration: Math.round(avgDuration / 1000),
       peakTime: new Date().toLocaleTimeString(),
     };
+  }
+
+  async banIP(ipAddress: string, reason: string, adminId: string, durationDays: number = 30): Promise<void> {
+    const ban: BannedIP = {
+      id: randomUUID(),
+      ipAddress,
+      reason,
+      bannedAt: Date.now(),
+      bannedBy: adminId,
+      expiresAt: Date.now() + durationDays * 24 * 60 * 60 * 1000,
+    };
+    this.bannedIPs.set(ipAddress, ban);
+  }
+
+  async unbanIP(ipAddress: string): Promise<void> {
+    this.bannedIPs.delete(ipAddress);
+  }
+
+  async getBannedIPs(): Promise<BannedIP[]> {
+    const now = Date.now();
+    const banned: BannedIP[] = [];
+    
+    this.bannedIPs.forEach((ban) => {
+      if (!ban.expiresAt || ban.expiresAt > now) {
+        banned.push(ban);
+      } else {
+        this.bannedIPs.delete(ban.ipAddress);
+      }
+    });
+    
+    return banned;
+  }
+
+  async isIPBanned(ipAddress: string): Promise<boolean> {
+    const ban = this.bannedIPs.get(ipAddress);
+    if (!ban) return false;
+    
+    if (ban.expiresAt && ban.expiresAt <= Date.now()) {
+      this.bannedIPs.delete(ipAddress);
+      return false;
+    }
+    
+    return true;
   }
 }
 

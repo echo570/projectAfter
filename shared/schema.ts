@@ -102,6 +102,15 @@ export interface BannedUser {
   bannedBy: string;
 }
 
+export interface BannedIP {
+  id: string;
+  ipAddress: string;
+  reason: string;
+  bannedAt: number;
+  bannedBy: string;
+  expiresAt?: number;
+}
+
 export interface ChatMonitoringSession {
   sessionId: string;
   user1Id: string;

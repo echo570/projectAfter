@@ -29,8 +29,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     processWaitingQueue();
   }, 2000);
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', async (ws: WebSocket, req) => {
     const userId = randomUUID();
+    const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+    
+    // Check if IP is banned
+    const isBanned = await storage.isIPBanned(ipAddress);
+    if (isBanned) {
+      console.log(`Blocked banned IP: ${ipAddress}`);
+      ws.close(4000, 'You have been banned from this service');
+      return;
+    }
+
     const client: ConnectedClient = { ws, userId, interests: [] };
     clients.set(userId, client);
 
@@ -41,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       connectedAt: Date.now(),
     });
 
-    console.log(`User ${userId} connected. Total users: ${clients.size}`);
+    console.log(`User ${userId} connected from ${ipAddress}. Total users: ${clients.size}`);
 
     ws.on('message', async (data: Buffer) => {
       try {
@@ -445,7 +455,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ban management endpoints
+  // Ban management endpoints - IP-based (primary for anonymous users)
+  app.post('/api/admin/ban-ip', verifyAdmin, async (req, res) => {
+    try {
+      const { ipAddress, reason, durationDays } = req.body;
+      if (!ipAddress || !reason) {
+        return res.status(400).json({ error: 'Missing ipAddress or reason' });
+      }
+      
+      await storage.banIP(ipAddress, reason, (req as any).adminId, durationDays || 30);
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to ban IP' });
+    }
+  });
+
+  app.post('/api/admin/unban-ip', verifyAdmin, async (req, res) => {
+    try {
+      const { ipAddress } = req.body;
+      if (!ipAddress) {
+        return res.status(400).json({ error: 'Missing ipAddress' });
+      }
+      
+      await storage.unbanIP(ipAddress);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to unban IP' });
+    }
+  });
+
+  app.get('/api/admin/bans', verifyAdmin, async (req, res) => {
+    try {
+      const bannedUsers = await storage.getBannedUsers();
+      const bannedIPs = await storage.getBannedIPs();
+      res.json({ bannedUsers, bannedIPs });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch bans' });
+    }
+  });
+
+  // Legacy user ban endpoints (kept for compatibility)
   app.post('/api/admin/ban', verifyAdmin, async (req, res) => {
     try {
       const { userId, reason } = req.body;
@@ -478,15 +528,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to unban user' });
-    }
-  });
-
-  app.get('/api/admin/bans', verifyAdmin, async (req, res) => {
-    try {
-      const banned = await storage.getBannedUsers();
-      res.json({ banned });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch banned users' });
     }
   });
 
