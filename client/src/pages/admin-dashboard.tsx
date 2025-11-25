@@ -451,14 +451,27 @@ export default function AdminDashboard() {
             <h1 className="text-4xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground mt-2">Manage site settings and content</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            data-testid="button-admin-logout"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                loadLogs();
+                setShowLogs(true);
+              }}
+              data-testid="button-view-logs"
+            >
+              <Terminal className="w-4 h-4 mr-2" />
+              Logs
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              data-testid="button-admin-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         {/* Interests Management */}
@@ -922,6 +935,29 @@ export default function AdminDashboard() {
             </div>
           </div>
         </Card>
+
+        {/* Logs Dialog */}
+        <Dialog open={showLogs} onOpenChange={setShowLogs}>
+          <DialogContent className="max-w-2xl h-96">
+            <DialogHeader>
+              <DialogTitle>Server Logs</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-full w-full rounded-md border p-4">
+              <div className="space-y-1 font-mono text-sm">
+                {logs.length > 0 ? (
+                  logs.map((log, index) => (
+                    <div key={index} className="text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">{log.timestamp}</span>
+                      <span className="ml-2">{log.message}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No logs available</p>
+                )}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
