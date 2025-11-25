@@ -994,5 +994,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RAM usage endpoint
+  app.get('/api/admin/ram-usage', verifyAdmin, async (req, res) => {
+    try {
+      const memUsage = process.memoryUsage();
+      const totalRAM = require('os').totalmem();
+      const freeRAM = require('os').freemem();
+      
+      res.json({
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024), // MB
+        rss: Math.round(memUsage.rss / 1024 / 1024), // MB
+        external: Math.round(memUsage.external / 1024 / 1024), // MB
+        totalRAM: Math.round(totalRAM / 1024 / 1024), // MB
+        freeRAM: Math.round(freeRAM / 1024 / 1024), // MB
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch RAM usage' });
+    }
+  });
+
   return httpServer;
 }
