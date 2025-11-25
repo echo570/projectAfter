@@ -82,33 +82,31 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-white dark:bg-slate-950 p-4">
-      <Card className="w-full max-w-md p-8 bg-white dark:bg-slate-900">
-        <h1 className="text-3xl font-bold mb-2 text-black dark:text-white">Admin Panel</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">Sign in to manage the site</p>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md p-8">
+        <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
+        <p className="text-muted-foreground mb-6">Sign in to manage the site</p>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2 text-black dark:text-white">Username</label>
+            <label className="block text-sm font-medium mb-2">Username</label>
             <Input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="admin"
               data-testid="input-admin-username"
-              className="bg-white dark:bg-slate-800 text-black dark:text-white border border-gray-300 dark:border-slate-600"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-black dark:text-white">Password</label>
+            <label className="block text-sm font-medium mb-2">Password</label>
             <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
               data-testid="input-admin-password"
-              className="bg-white dark:bg-slate-800 text-black dark:text-white border border-gray-300 dark:border-slate-600"
             />
           </div>
 
@@ -123,21 +121,21 @@ export default function AdminLogin() {
         </form>
 
         {(failedAttempts > 0 || isBanned) && (
-          <div className={`mt-4 p-3 border rounded-lg ${isBanned ? 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700' : 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700'}`}>
-            <p className="text-sm font-medium text-red-700 dark:text-red-300">
+          <div className={`mt-4 p-3 border rounded-lg ${isBanned ? 'bg-destructive/15 border-destructive/30' : 'bg-destructive/10 border-destructive/20'}`}>
+            <p className="text-sm font-medium text-destructive">
               {failedAttempts === 1 
                 ? "1 failed attempt since last successful login"
                 : `${failedAttempts} failed attempts since last successful login`}
             </p>
             {isBanned && (
-              <p className="text-xs text-red-700 dark:text-red-300 mt-2 font-medium">
+              <p className="text-xs text-destructive mt-2 font-medium">
                 ⏱ Banned for {Math.ceil(banTimeRemaining / 1000)} second{Math.ceil(banTimeRemaining / 1000) !== 1 ? 's' : ''}
               </p>
             )}
           </div>
         )}
 
-        <p className="text-xs text-gray-600 dark:text-gray-400 mt-6 text-center">
+        <p className="text-xs text-muted-foreground mt-6 text-center">
           Demo credentials: admin / admin123
         </p>
       </Card>

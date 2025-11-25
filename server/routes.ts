@@ -10,23 +10,6 @@ import geoip from 'geoip-lite';
 
 let activeSessions: Map<string, { user1Id: string; user2Id: string; startedAt: number }> = new Map();
 
-const logBuffer: Array<{ timestamp: string; message: string }> = [];
-const MAX_LOGS = 500;
-
-function addLog(message: string) {
-  const timestamp = new Date().toLocaleTimeString();
-  logBuffer.push({ timestamp, message });
-  if (logBuffer.length > MAX_LOGS) {
-    logBuffer.shift();
-  }
-}
-
-const originalLog = console.log;
-console.log = (...args) => {
-  originalLog(...args);
-  addLog(args.join(' '));
-};
-
 interface ConnectedClient {
   ws: WebSocket;
   userId: string;
@@ -982,48 +965,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analytics);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch analytics' });
-    }
-  });
-
-  // Logs endpoint
-  app.get('/api/admin/logs', verifyAdmin, async (req, res) => {
-    try {
-      res.json({ logs: logBuffer });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch logs' });
-    }
-  });
-
-  // RAM usage endpoint
-  app.get('/api/admin/ram-usage', verifyAdmin, async (req, res) => {
-    try {
-      const memUsage = process.memoryUsage();
-      const totalRAM = require('os').totalmem();
-      const freeRAM = require('os').freemem();
-      
-      res.json({
-        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
-        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024), // MB
-        rss: Math.round(memUsage.rss / 1024 / 1024), // MB
-        external: Math.round(memUsage.external / 1024 / 1024), // MB
-        totalRAM: Math.round(totalRAM / 1024 / 1024), // MB
-        freeRAM: Math.round(freeRAM / 1024 / 1024), // MB
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch RAM usage' });
-    }
-  });
-
-  // Clear cache endpoint
-  app.post('/api/admin/clear-cache', verifyAdmin, async (req, res) => {
-    try {
-      if (global.gc) {
-        global.gc();
-        addLog('[ADMIN] Garbage collection triggered');
-      }
-      res.json({ success: true, message: 'Cache cleared and garbage collection triggered' });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to clear cache' });
     }
   });
 
