@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Language } from '@/lib/i18n';
 
+export type { Language };
+
 const LANGUAGE_STORAGE_KEY = 'strangerchat_language';
 
 export function useLanguage() {
@@ -25,6 +27,6 @@ export function useLanguage() {
 
 function detectBrowserLanguage(): Language {
   const browserLang = navigator.language.split('-')[0].toLowerCase();
-  const validLanguages: Language[] = ['en', 'es', 'fr', 'de', 'zh', 'ar', 'ja', 'pt', 'ru', 'hi'];
+  const validLanguages: Language[] = ['en', 'es', 'fr', 'de', 'zh', 'ar', 'ja', 'pt', 'ru', 'hi', 'sw'];
   return validLanguages.includes(browserLang as Language) ? (browserLang as Language) : 'en';
 }
