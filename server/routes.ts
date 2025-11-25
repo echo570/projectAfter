@@ -6,7 +6,7 @@ import type { WebSocketMessage, OnlineStats, AdminLogin } from "@shared/schema";
 import { adminLoginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 // @ts-ignore - geoip-lite doesn't have TypeScript definitions
-import * as geoip from "geoip-lite";
+import geoip from 'geoip-lite';
 
 let activeSessions: Map<string, { user1Id: string; user2Id: string; startedAt: number }> = new Map();
 
