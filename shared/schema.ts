@@ -99,6 +99,10 @@ export interface OnlineStats {
   inChat: number;
 }
 
+export interface AISettings {
+  enabled: boolean;
+}
+
 export interface Admin {
   id: string;
   username: string;

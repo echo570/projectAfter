@@ -59,6 +59,7 @@ export class MemStorage implements IStorage {
   private permanentAdminIP: string | null;
   private blockedCountries: Map<string, BlockedCountry>;
   private settingsPath = path.join(process.cwd(), 'data', 'admin-settings.json');
+  private aiEnabled: boolean;
 
   constructor() {
     this.sessions = new Map();
@@ -75,6 +76,7 @@ export class MemStorage implements IStorage {
     this.loginAttempts = new Map();
     this.permanentAdminIP = null;
     this.blockedCountries = new Map();
+    this.aiEnabled = true;
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
       'Fitness', 'Food', 'Photography', 'Cooking', 'Fashion', 'DIY', 'Pets',
@@ -101,6 +103,7 @@ export class MemStorage implements IStorage {
       if (settings.fakeUserCountSettings) this.fakeUserCountSettings = settings.fakeUserCountSettings;
       if (settings.maintenanceMode) this.maintenanceMode = settings.maintenanceMode;
       if (settings.permanentAdminIP) this.permanentAdminIP = settings.permanentAdminIP;
+      if (settings.aiEnabled !== undefined) this.aiEnabled = settings.aiEnabled;
       console.log('Admin settings loaded from disk');
     } catch {
       console.log('No existing admin settings found, using defaults');
@@ -116,6 +119,7 @@ export class MemStorage implements IStorage {
         fakeUserCountSettings: this.fakeUserCountSettings,
         maintenanceMode: this.maintenanceMode,
         permanentAdminIP: this.permanentAdminIP,
+        aiEnabled: this.aiEnabled,
       };
       await fs.writeFile(this.settingsPath, JSON.stringify(settings, null, 2));
     } catch (error) {
