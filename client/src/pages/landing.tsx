@@ -95,7 +95,7 @@ export default function Landing() {
             <div>
               <p className="text-sm font-medium">Time Remaining:</p>
               <p className="text-lg font-bold text-destructive mt-1">
-                {Math.floor(timeLeft / 60)}m {timeLeft % 60}s
+                {Math.floor(timeLeft / 86400)}d {Math.floor((timeLeft % 86400) / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m {timeLeft % 60}s
               </p>
             </div>
           </div>
