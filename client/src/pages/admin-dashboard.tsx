@@ -39,17 +39,25 @@ export default function AdminDashboard() {
       setLocation("/admin/login");
       return;
     }
-    loadData();
-    const interval = setInterval(loadData, 5000);
+    // Load all data once on mount
+    loadInitialData();
+    // Periodically refresh only analytics and monitoring (not user-editable settings)
+    const interval = setInterval(loadLiveData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
+  const loadInitialData = async () => {
     loadInterests();
     loadBans();
     loadMonitoring();
     loadAnalytics();
     loadFakeUserSettings();
+  };
+
+  const loadLiveData = async () => {
+    loadBans();
+    loadMonitoring();
+    loadAnalytics();
   };
 
   const loadFakeUserSettings = async () => {
