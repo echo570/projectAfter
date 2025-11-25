@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle, Lock, Unlock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { COUNTRIES } from "@shared/countries";
 
 interface Interest {
   name: string;
@@ -38,7 +40,6 @@ export default function AdminDashboard() {
   const [permanentAdminIP, setPermanentAdminIP] = useState<string | null>(null);
   const [blockedCountries, setBlockedCountries] = useState<any[]>([]);
   const [newBlockCountryCode, setNewBlockCountryCode] = useState("");
-  const [newBlockCountryName, setNewBlockCountryName] = useState("");
   const [newBlockReason, setNewBlockReason] = useState("");
 
   useEffect(() => {
@@ -316,20 +317,25 @@ export default function AdminDashboard() {
   };
 
   const handleBlockCountry = async () => {
-    if (!newBlockCountryCode.trim() || !newBlockCountryName.trim() || !newBlockReason.trim()) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+    if (!newBlockCountryCode.trim() || !newBlockReason.trim()) {
+      toast({ title: "Error", description: "Please select a country and provide a reason", variant: "destructive" });
+      return;
+    }
+
+    const selectedCountry = COUNTRIES.find((c) => c.code === newBlockCountryCode);
+    if (!selectedCountry) {
+      toast({ title: "Error", description: "Invalid country selection", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     try {
       await apiRequest("POST", "/api/admin/block-country", {
-        countryCode: newBlockCountryCode.toUpperCase(),
-        countryName: newBlockCountryName,
+        countryCode: newBlockCountryCode,
+        countryName: selectedCountry.name,
         reason: newBlockReason,
       });
       setNewBlockCountryCode("");
-      setNewBlockCountryName("");
       setNewBlockReason("");
       toast({ title: "Success", description: "Country blocked successfully" });
       loadBlockedCountries();
@@ -749,33 +755,32 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold mb-4">Block Countries by IP Geolocation</h3>
             <div className="p-4 bg-secondary rounded-lg">
               <div className="space-y-3">
-                <Input
-                  type="text"
-                  value={newBlockCountryCode}
-                  onChange={(e) => setNewBlockCountryCode(e.target.value)}
-                  placeholder="Country code (e.g., US, CN, RU)"
-                  data-testid="input-block-country-code"
-                  disabled={isLoading}
-                />
-                <Input
-                  type="text"
-                  value={newBlockCountryName}
-                  onChange={(e) => setNewBlockCountryName(e.target.value)}
-                  placeholder="Country name (e.g., United States)"
-                  data-testid="input-block-country-name"
-                  disabled={isLoading}
-                />
+                <div>
+                  <label className="block text-sm font-medium mb-2">Select Country</label>
+                  <Select value={newBlockCountryCode} onValueChange={setNewBlockCountryCode} disabled={isLoading}>
+                    <SelectTrigger data-testid="select-block-country">
+                      <SelectValue placeholder="Choose a country..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country.code} value={country.code} data-testid={`select-option-${country.code}`}>
+                          {country.name} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Input
                   type="text"
                   value={newBlockReason}
                   onChange={(e) => setNewBlockReason(e.target.value)}
-                  placeholder="Reason for blocking"
+                  placeholder="Reason for blocking (e.g., Spam, Illegal content)"
                   data-testid="input-block-reason"
                   disabled={isLoading}
                 />
                 <Button
                   onClick={handleBlockCountry}
-                  disabled={isLoading}
+                  disabled={isLoading || !newBlockCountryCode}
                   className="w-full"
                   data-testid="button-block-country"
                 >
