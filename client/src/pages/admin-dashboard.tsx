@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp } from "lucide-react";
+import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Interest {
   name: string;
@@ -29,6 +30,8 @@ export default function AdminDashboard() {
   const [fakeUserMax, setFakeUserMax] = useState("0");
   const [fakeUserEnabled, setFakeUserEnabled] = useState(false);
   const [fakeBotsEnabled, setFakeBotsEnabled] = useState(false);
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+  const [maintenanceReason, setMaintenanceReason] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -66,6 +69,15 @@ export default function AdminDashboard() {
       setFakeBotsEnabled(data.enabled);
     } catch (error) {
       console.error("Failed to load fake bots settings");
+    }
+    
+    try {
+      const response = await apiRequest("GET", "/api/admin/maintenance");
+      const data = await response.json();
+      setMaintenanceEnabled(data.enabled);
+      setMaintenanceReason(data.reason);
+    } catch (error) {
+      console.error("Failed to load maintenance settings");
     }
   };
 
@@ -252,6 +264,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleToggleMaintenance = async () => {
+    if (!maintenanceEnabled && !maintenanceReason.trim()) {
+      toast({ title: "Error", description: "Please provide a reason for maintenance", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/maintenance", {
+        enabled: !maintenanceEnabled,
+        reason: maintenanceReason.trim(),
+      });
+      setMaintenanceEnabled(!maintenanceEnabled);
+      toast({ 
+        title: "Success", 
+        description: `Site is now ${!maintenanceEnabled ? 'under maintenance' : 'back online'}`,
+        variant: maintenanceEnabled ? undefined : "destructive"
+      });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update maintenance mode", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     setLocation("/");
@@ -392,6 +429,42 @@ export default function AdminDashboard() {
           ) : (
             <p className="text-muted-foreground text-center py-4">No active chat sessions</p>
           )}
+        </Card>
+
+        {/* Maintenance Mode */}
+        <Card className="p-6 mt-6 border-destructive/50">
+          <div className="flex items-center gap-2 mb-6">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <h2 className="text-2xl font-bold">Maintenance Mode</h2>
+          </div>
+
+          <div className="p-4 bg-destructive/10 rounded-lg space-y-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Take the site offline and show users a maintenance message. This will block all new connections.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium block mb-2">Maintenance Reason</label>
+                <Textarea
+                  value={maintenanceReason}
+                  onChange={(e) => setMaintenanceReason(e.target.value)}
+                  placeholder="e.g., Server maintenance, database updates, security patch..."
+                  disabled={isLoading}
+                  className="resize-none"
+                  data-testid="textarea-maintenance-reason"
+                />
+              </div>
+              <Button
+                onClick={handleToggleMaintenance}
+                disabled={isLoading}
+                className="w-full"
+                variant={maintenanceEnabled ? "destructive" : "outline"}
+                data-testid="button-toggle-maintenance"
+              >
+                {maintenanceEnabled ? 'Site is Offline' : 'Site is Online'}
+              </Button>
+            </div>
+          </div>
         </Card>
 
         {/* Fake Bots Settings */}

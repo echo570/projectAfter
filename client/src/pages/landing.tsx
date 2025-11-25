@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { InterestsSelector } from "@/components/InterestsSelector";
-import { Video, MessageCircle, Users } from "lucide-react";
+import { Video, MessageCircle, Users, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { OnlineStats } from "@shared/schema";
 
@@ -10,11 +10,28 @@ export default function Landing() {
   const [, setLocation] = useLocation();
   const [isStarting, setIsStarting] = useState(false);
   const [showInterests, setShowInterests] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState<{ enabled: boolean; reason: string } | null>(null);
 
   const { data: stats } = useQuery<OnlineStats>({
     queryKey: ['/api/stats'],
     refetchInterval: 10000,
   });
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const response = await fetch('/api/maintenance');
+        const data = await response.json();
+        setMaintenanceMode(data);
+      } catch (error) {
+        console.error('Failed to check maintenance status');
+      }
+    };
+    
+    checkMaintenance();
+    const interval = setInterval(checkMaintenance, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStartChat = () => {
     setShowInterests(true);
@@ -27,6 +44,31 @@ export default function Landing() {
       setLocation('/chat');
     }, 100);
   };
+
+  if (maintenanceMode?.enabled) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-destructive/5 via-background to-destructive/5 px-4">
+        <div className="max-w-md text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-8 h-8 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">Site Maintenance</h1>
+            <p className="text-muted-foreground">
+              We're currently performing maintenance to improve your experience.
+            </p>
+          </div>
+          <div className="p-4 bg-secondary rounded-lg">
+            <p className="text-sm font-medium">Reason:</p>
+            <p className="text-sm text-muted-foreground mt-1">{maintenanceMode.reason}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Please check back soon. We'll be online shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-primary/5 via-background to-accent/5">

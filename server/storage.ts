@@ -47,6 +47,7 @@ export class MemStorage implements IStorage {
   private sessionDurations: { sessionId: string; duration: number }[];
   private fakeUserCountSettings: { minUsers: number; maxUsers: number; enabled: boolean };
   private fakeBotsEnabled: boolean;
+  private maintenanceMode: { enabled: boolean; reason: string };
 
   constructor() {
     this.sessions = new Map();
@@ -59,6 +60,7 @@ export class MemStorage implements IStorage {
     this.sessionDurations = [];
     this.fakeUserCountSettings = { minUsers: 0, maxUsers: 0, enabled: false };
     this.fakeBotsEnabled = false;
+    this.maintenanceMode = { enabled: false, reason: '' };
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
       'Fitness', 'Food', 'Photography', 'Cooking', 'Fashion', 'DIY', 'Pets',
@@ -298,6 +300,14 @@ export class MemStorage implements IStorage {
 
   async getFakeBotsEnabled(): Promise<boolean> {
     return this.fakeBotsEnabled;
+  }
+
+  async setMaintenanceMode(enabled: boolean, reason: string): Promise<void> {
+    this.maintenanceMode = { enabled, reason };
+  }
+
+  async getMaintenanceMode(): Promise<{ enabled: boolean; reason: string }> {
+    return this.maintenanceMode;
   }
 }
 

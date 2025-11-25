@@ -36,6 +36,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = randomUUID();
     const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
     
+    // Check if site is in maintenance mode
+    const maintenance = await storage.getMaintenanceMode();
+    if (maintenance.enabled) {
+      console.log(`Blocked user due to maintenance: ${ipAddress}`);
+      ws.close(4003, `Site is under maintenance: ${maintenance.reason}`);
+      return;
+    }
+    
     // Check if IP is banned
     const isBanned = await storage.isIPBanned(ipAddress);
     if (isBanned) {
@@ -619,6 +627,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update fake bots settings' });
+    }
+  });
+
+  // Maintenance mode endpoints
+  app.get('/api/admin/maintenance', verifyAdmin, async (req, res) => {
+    try {
+      const maintenance = await storage.getMaintenanceMode();
+      res.json(maintenance);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch maintenance status' });
+    }
+  });
+
+  app.post('/api/admin/maintenance', verifyAdmin, async (req, res) => {
+    try {
+      const { enabled, reason } = req.body;
+      if (typeof enabled !== 'boolean' || typeof reason !== 'string') {
+        return res.status(400).json({ error: 'Invalid parameters' });
+      }
+      await storage.setMaintenanceMode(enabled, reason);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update maintenance mode' });
+    }
+  });
+
+  // Public maintenance status endpoint
+  app.get('/api/maintenance', async (req, res) => {
+    try {
+      const maintenance = await storage.getMaintenanceMode();
+      res.json(maintenance);
+    } catch (error) {
+      res.status(500).json({ enabled: false, reason: '' });
     }
   });
 
