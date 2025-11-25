@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle, Lock, Unlock, Terminal } from "lucide-react";
+import { X, Plus, LogOut, Users, Activity, BarChart3, Ban, TrendingUp, AlertTriangle, Lock, Unlock, Terminal, HardDrive, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { COUNTRIES } from "@shared/countries";
 
 interface Interest {
@@ -45,6 +46,7 @@ export default function AdminDashboard() {
   const [newBlockReason, setNewBlockReason] = useState("");
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<Array<{ timestamp: string; message: string }>>([]);
+  const [ramUsage, setRamUsage] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -70,6 +72,7 @@ export default function AdminDashboard() {
     loadAnalytics();
     loadFakeUserSettings();
     loadBlockedCountries();
+    loadRAMUsage();
   };
 
   const loadLiveData = async () => {
@@ -77,6 +80,7 @@ export default function AdminDashboard() {
     loadMonitoring();
     loadAnalytics();
     loadBlockedCountries();
+    loadRAMUsage();
   };
 
   const checkFailedLoginAttempts = async () => {
@@ -269,6 +273,30 @@ export default function AdminDashboard() {
       setLogs(data.logs || []);
     } catch (error) {
       console.error("Failed to load logs");
+    }
+  };
+
+  const loadRAMUsage = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/admin/ram-usage");
+      const data = await response.json();
+      setRamUsage(data);
+    } catch (error) {
+      console.error("Failed to load RAM usage");
+    }
+  };
+
+  const handleClearCache = async () => {
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/clear-cache", {});
+      toast({ title: "Success", description: "Cache cleared and garbage collection triggered" });
+      // Reload RAM usage after clearing
+      setTimeout(loadRAMUsage, 500);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to clear cache", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -532,6 +560,96 @@ export default function AdminDashboard() {
             )}
           </div>
         </Card>
+
+        {/* RAM Usage Section */}
+        {ramUsage && (
+          <Card className="p-6 mt-6 border-blue-500/30">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-6 h-6 text-blue-600" />
+                <h2 className="text-2xl font-bold">Server Memory Usage</h2>
+              </div>
+              <Button
+                onClick={handleClearCache}
+                disabled={isLoading}
+                variant="outline"
+                size="sm"
+                data-testid="button-clear-cache"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear Cache
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Heap Usage */}
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium">Heap Memory</p>
+                    <p className="text-sm font-bold">{ramUsage.heapUsed} / {ramUsage.heapTotal} MB</p>
+                  </div>
+                  <Progress 
+                    value={(ramUsage.heapUsed / ramUsage.heapTotal) * 100} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Math.round((ramUsage.heapUsed / ramUsage.heapTotal) * 100)}% used
+                  </p>
+                </div>
+              </div>
+
+              {/* RSS Memory */}
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium">Process Memory (RSS)</p>
+                    <p className="text-sm font-bold">{ramUsage.rss} MB</p>
+                  </div>
+                  <Progress 
+                    value={(ramUsage.rss / ramUsage.totalRAM) * 100} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Math.round((ramUsage.rss / ramUsage.totalRAM) * 100)}% of total
+                  </p>
+                </div>
+              </div>
+
+              {/* System RAM */}
+              <div className="space-y-3 md:col-span-2">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium">System RAM</p>
+                    <p className="text-sm font-bold">{ramUsage.totalRAM - ramUsage.freeRAM} / {ramUsage.totalRAM} MB</p>
+                  </div>
+                  <Progress 
+                    value={((ramUsage.totalRAM - ramUsage.freeRAM) / ramUsage.totalRAM) * 100} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Math.round(((ramUsage.totalRAM - ramUsage.freeRAM) / ramUsage.totalRAM) * 100)}% used, {ramUsage.freeRAM} MB free
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-6 pt-6 border-t">
+              <div>
+                <p className="text-xs text-muted-foreground">External Memory</p>
+                <p className="text-lg font-bold">{ramUsage.external} MB</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total System</p>
+                <p className="text-lg font-bold">{ramUsage.totalRAM} MB</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Free RAM</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{ramUsage.freeRAM} MB</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Analytics Section */}
         {analytics && (

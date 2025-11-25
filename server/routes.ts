@@ -1014,5 +1014,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear cache endpoint
+  app.post('/api/admin/clear-cache', verifyAdmin, async (req, res) => {
+    try {
+      if (global.gc) {
+        global.gc();
+        addLog('[ADMIN] Garbage collection triggered');
+      }
+      res.json({ success: true, message: 'Cache cleared and garbage collection triggered' });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to clear cache' });
+    }
+  });
+
   return httpServer;
 }
