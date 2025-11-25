@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { OnlineStats } from "@shared/schema";
 import { useLanguage, type Language } from "@/hooks/use-language";
 import { LANGUAGES, useTranslation } from "@/lib/i18n";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -145,7 +146,7 @@ export default function Landing() {
             <Video className="w-6 h-6 text-primary" />
             <span className="font-bold text-xl">{t('app.title')}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {stats && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-online-count">
                 <div className="w-2 h-2 rounded-full bg-status-online animate-pulse" />
@@ -163,6 +164,7 @@ export default function Landing() {
                 <option key={code} value={code}>{name}</option>
               ))}
             </select>
+            <ThemeToggle />
           </div>
         </div>
       </header>
