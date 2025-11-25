@@ -17,6 +17,8 @@ interface ConnectedClient {
   recentPartnerTime?: number;
   interests: string[];
   ipAddress: string;
+  waitStartTime?: number;
+  isBot?: boolean;
 }
 
 const clients = new Map<string, ConnectedClient>();
@@ -148,6 +150,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const client = clients.get(user.id);
       if (!client || client.sessionId) continue;
+
+      // Check if fake bots are enabled and user has been waiting >30 seconds
+      const fakeBotsEnabled = await storage.getFakeBotsEnabled();
+      const waitTime = Date.now() - (client.waitStartTime || 0);
+      const WAIT_TIMEOUT_MS = 30000;
+
+      if (fakeBotsEnabled && waitTime > WAIT_TIMEOUT_MS && !client.sessionId) {
+        const botId = `bot-${randomUUID()}`;
+        const session = await storage.createSession(user.id, botId);
+
+        client.sessionId = session.id;
+        client.partnerId = botId;
+        client.recentPartnerId = undefined;
+        client.recentPartnerTime = undefined;
+        client.waitStartTime = undefined;
+
+        await storage.setUserState(user.id, {
+          id: user.id,
+          status: 'in-chat',
+          sessionId: session.id,
+          interests: client.interests,
+          connectedAt: Date.now(),
+        });
+
+        sendToClient(user.id, {
+          type: 'match',
+          data: { sessionId: session.id, initiator: true, isBot: true },
+        });
+
+        console.log(`Matched user ${user.id} with fake bot ${botId}`);
+        processed.add(user.id);
+        continue;
+      }
       
       const match = await findMatchForUser(user.id);
       if (match) {
@@ -261,6 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const client = clients.get(userId);
     if (!client) return;
 
+    client.waitStartTime = Date.now();
     await storage.setUserState(userId, {
       id: userId,
       status: 'waiting',
@@ -560,6 +596,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: 'Failed to update fake user settings' });
+    }
+  });
+
+  // Fake bots settings
+  app.get('/api/admin/fake-bots', verifyAdmin, async (req, res) => {
+    try {
+      const enabled = await storage.getFakeBotsEnabled();
+      res.json({ enabled });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch fake bots settings' });
+    }
+  });
+
+  app.post('/api/admin/fake-bots', verifyAdmin, async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid parameters' });
+      }
+      await storage.setFakeBotsEnabled(enabled);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update fake bots settings' });
     }
   });
 

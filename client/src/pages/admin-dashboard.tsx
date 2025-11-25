@@ -28,6 +28,7 @@ export default function AdminDashboard() {
   const [fakeUserMin, setFakeUserMin] = useState("0");
   const [fakeUserMax, setFakeUserMax] = useState("0");
   const [fakeUserEnabled, setFakeUserEnabled] = useState(false);
+  const [fakeBotsEnabled, setFakeBotsEnabled] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -57,6 +58,14 @@ export default function AdminDashboard() {
       setFakeUserEnabled(data.enabled);
     } catch (error) {
       console.error("Failed to load fake user settings");
+    }
+    
+    try {
+      const response = await apiRequest("GET", "/api/admin/fake-bots");
+      const data = await response.json();
+      setFakeBotsEnabled(data.enabled);
+    } catch (error) {
+      console.error("Failed to load fake bots settings");
     }
   };
 
@@ -228,6 +237,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleToggleFakeBots = async () => {
+    setIsLoading(true);
+    try {
+      await apiRequest("POST", "/api/admin/fake-bots", {
+        enabled: !fakeBotsEnabled,
+      });
+      setFakeBotsEnabled(!fakeBotsEnabled);
+      toast({ title: "Success", description: `Fake bots ${!fakeBotsEnabled ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update settings", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     setLocation("/");
@@ -370,11 +394,34 @@ export default function AdminDashboard() {
           )}
         </Card>
 
+        {/* Fake Bots Settings */}
+        <Card className="p-6 mt-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Users className="w-6 h-6" />
+            <h2 className="text-2xl font-bold">Fake Bot Matching</h2>
+          </div>
+
+          <div className="p-4 bg-secondary rounded-lg space-y-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Automatically match waiting users with fake bots after 30 seconds of waiting. This prevents users from waiting too long.
+            </p>
+            <Button
+              onClick={handleToggleFakeBots}
+              disabled={isLoading}
+              className="w-full"
+              variant={fakeBotsEnabled ? "default" : "outline"}
+              data-testid="button-toggle-fake-bots"
+            >
+              {fakeBotsEnabled ? 'Fake Bots Enabled' : 'Fake Bots Disabled'}
+            </Button>
+          </div>
+        </Card>
+
         {/* Fake User Count Settings */}
         <Card className="p-6 mt-6">
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-6 h-6" />
-            <h2 className="text-2xl font-bold">Fake User Count</h2>
+            <h2 className="text-2xl font-bold">Fake User Count Display</h2>
           </div>
 
           <div className="p-4 bg-secondary rounded-lg space-y-4">

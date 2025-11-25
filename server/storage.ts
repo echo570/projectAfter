@@ -46,6 +46,7 @@ export class MemStorage implements IStorage {
   private reports: Report[];
   private sessionDurations: { sessionId: string; duration: number }[];
   private fakeUserCountSettings: { minUsers: number; maxUsers: number; enabled: boolean };
+  private fakeBotsEnabled: boolean;
 
   constructor() {
     this.sessions = new Map();
@@ -57,6 +58,7 @@ export class MemStorage implements IStorage {
     this.reports = [];
     this.sessionDurations = [];
     this.fakeUserCountSettings = { minUsers: 0, maxUsers: 0, enabled: false };
+    this.fakeBotsEnabled = false;
     this.interests = [
       'Gaming', 'Music', 'Movies', 'Sports', 'Travel', 'Tech', 'Art', 'Books',
       'Fitness', 'Food', 'Photography', 'Cooking', 'Fashion', 'DIY', 'Pets',
@@ -288,6 +290,14 @@ export class MemStorage implements IStorage {
 
     const { minUsers, maxUsers } = this.fakeUserCountSettings;
     return Math.floor(Math.random() * (maxUsers - minUsers + 1)) + minUsers;
+  }
+
+  async setFakeBotsEnabled(enabled: boolean): Promise<void> {
+    this.fakeBotsEnabled = enabled;
+  }
+
+  async getFakeBotsEnabled(): Promise<boolean> {
+    return this.fakeBotsEnabled;
   }
 }
 
