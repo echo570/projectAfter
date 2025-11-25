@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import type { WebSocketMessage, OnlineStats, AdminLogin } from "@shared/schema";
 import { adminLoginSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
+import * as geoip from "geoip-lite";
 
 let activeSessions: Map<string, { user1Id: string; user2Id: string; startedAt: number }> = new Map();
 
@@ -30,15 +31,37 @@ function getCountryFromIP(ip: string): { country: string; countryCode: string; f
   
   if (ipCountryMap[ip]) return ipCountryMap[ip];
   
-  const countryData: Record<string, { name: string; code: string; flag: string }> = {
-    'US': { name: 'United States', code: 'US', flag: '🇺🇸' }, 'GB': { name: 'United Kingdom', code: 'GB', flag: '🇬🇧' }, 'CA': { name: 'Canada', code: 'CA', flag: '🇨🇦' }, 'AU': { name: 'Australia', code: 'AU', flag: '🇦🇺' }, 'NZ': { name: 'New Zealand', code: 'NZ', flag: '🇳🇿' },
-    'DE': { name: 'Germany', code: 'DE', flag: '🇩🇪' }, 'FR': { name: 'France', code: 'FR', flag: '🇫🇷' }, 'IT': { name: 'Italy', code: 'IT', flag: '🇮🇹' }, 'ES': { name: 'Spain', code: 'ES', flag: '🇪🇸' }, 'NL': { name: 'Netherlands', code: 'NL', flag: '🇳🇱' }, 'BE': { name: 'Belgium', code: 'BE', flag: '🇧🇪' }, 'AT': { name: 'Austria', code: 'AT', flag: '🇦🇹' }, 'CH': { name: 'Switzerland', code: 'CH', flag: '🇨🇭' },
-    'SE': { name: 'Sweden', code: 'SE', flag: '🇸🇪' }, 'NO': { name: 'Norway', code: 'NO', flag: '🇳🇴' }, 'DK': { name: 'Denmark', code: 'DK', flag: '🇩🇰' }, 'FI': { name: 'Finland', code: 'FI', flag: '🇫🇮' }, 'PL': { name: 'Poland', code: 'PL', flag: '🇵🇱' }, 'CZ': { name: 'Czech Republic', code: 'CZ', flag: '🇨🇿' }, 'RU': { name: 'Russia', code: 'RU', flag: '🇷🇺' }, 'UA': { name: 'Ukraine', code: 'UA', flag: '🇺🇦' },
-    'JP': { name: 'Japan', code: 'JP', flag: '🇯🇵' }, 'CN': { name: 'China', code: 'CN', flag: '🇨🇳' }, 'IN': { name: 'India', code: 'IN', flag: '🇮🇳' }, 'BR': { name: 'Brazil', code: 'BR', flag: '🇧🇷' }, 'MX': { name: 'Mexico', code: 'MX', flag: '🇲🇽' }, 'ZA': { name: 'South Africa', code: 'ZA', flag: '🇿🇦' }, 'SG': { name: 'Singapore', code: 'SG', flag: '🇸🇬' }, 'HK': { name: 'Hong Kong', code: 'HK', flag: '🇭🇰' },
-    'TH': { name: 'Thailand', code: 'TH', flag: '🇹🇭' }, 'KR': { name: 'South Korea', code: 'KR', flag: '🇰🇷' }, 'PH': { name: 'Philippines', code: 'PH', flag: '🇵🇭' }, 'VN': { name: 'Vietnam', code: 'VN', flag: '🇻🇳' }, 'MY': { name: 'Malaysia', code: 'MY', flag: '🇲🇾' }, 'ID': { name: 'Indonesia', code: 'ID', flag: '🇮🇩' }, 'TR': { name: 'Turkey', code: 'TR', flag: '🇹🇷' }, 'AE': { name: 'UAE', code: 'AE', flag: '🇦🇪' },
-    'SA': { name: 'Saudi Arabia', code: 'SA', flag: '🇸🇦' }, 'IL': { name: 'Israel', code: 'IL', flag: '🇮🇱' }, 'EG': { name: 'Egypt', code: 'EG', flag: '🇪🇬' }, 'NG': { name: 'Nigeria', code: 'NG', flag: '🇳🇬' }, 'KE': { name: 'Kenya', code: 'KE', flag: '🇰🇪' }, 'GR': { name: 'Greece', code: 'GR', flag: '🇬🇷' }, 'PT': { name: 'Portugal', code: 'PT', flag: '🇵🇹' }, 'IR': { name: 'Iran', code: 'IR', flag: '🇮🇷' },
-    'PK': { name: 'Pakistan', code: 'PK', flag: '🇵🇰' }, 'BD': { name: 'Bangladesh', code: 'BD', flag: '🇧🇩' }, 'LK': { name: 'Sri Lanka', code: 'LK', flag: '🇱🇰' }, 'TW': { name: 'Taiwan', code: 'TW', flag: '🇹🇼' }, 'AR': { name: 'Argentina', code: 'AR', flag: '🇦🇷' }, 'CL': { name: 'Chile', code: 'CL', flag: '🇨🇱' }, 'CO': { name: 'Colombia', code: 'CO', flag: '🇨🇴' }, 'PE': { name: 'Peru', code: 'PE', flag: '🇵🇪' },
+  const countryFlagMap: Record<string, string> = {
+    'US': '🇺🇸', 'GB': '🇬🇧', 'CA': '🇨🇦', 'AU': '🇦🇺', 'NZ': '🇳🇿',
+    'DE': '🇩🇪', 'FR': '🇫🇷', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱', 'BE': '🇧🇪', 'AT': '🇦🇹', 'CH': '🇨🇭',
+    'SE': '🇸🇪', 'NO': '🇳🇴', 'DK': '🇩🇰', 'FI': '🇫🇮', 'PL': '🇵🇱', 'CZ': '🇨🇿', 'RU': '🇷🇺', 'UA': '🇺🇦',
+    'JP': '🇯🇵', 'CN': '🇨🇳', 'IN': '🇮🇳', 'BR': '🇧🇷', 'MX': '🇲🇽', 'ZA': '🇿🇦', 'SG': '🇸🇬', 'HK': '🇭🇰',
+    'TH': '🇹🇭', 'KR': '🇰🇷', 'PH': '🇵🇭', 'VN': '🇻🇳', 'MY': '🇲🇾', 'ID': '🇮🇩', 'TR': '🇹🇷', 'AE': '🇦🇪',
+    'SA': '🇸🇦', 'IL': '🇮🇱', 'EG': '🇪🇬', 'NG': '🇳🇬', 'KE': '🇰🇪', 'GR': '🇬🇷', 'PT': '🇵🇹', 'IR': '🇮🇷',
+    'PK': '🇵🇰', 'BD': '🇧🇩', 'LK': '🇱🇰', 'TW': '🇹🇼', 'AR': '🇦🇷', 'CL': '🇨🇱', 'CO': '🇨🇴', 'PE': '🇵🇪',
   };
+
+  const countryNameMap: Record<string, string> = {
+    'US': 'United States', 'GB': 'United Kingdom', 'CA': 'Canada', 'AU': 'Australia', 'NZ': 'New Zealand',
+    'DE': 'Germany', 'FR': 'France', 'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'BE': 'Belgium', 'AT': 'Austria', 'CH': 'Switzerland',
+    'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark', 'FI': 'Finland', 'PL': 'Poland', 'CZ': 'Czech Republic', 'RU': 'Russia', 'UA': 'Ukraine',
+    'JP': 'Japan', 'CN': 'China', 'IN': 'India', 'BR': 'Brazil', 'MX': 'Mexico', 'ZA': 'South Africa', 'SG': 'Singapore', 'HK': 'Hong Kong',
+    'TH': 'Thailand', 'KR': 'South Korea', 'PH': 'Philippines', 'VN': 'Vietnam', 'MY': 'Malaysia', 'ID': 'Indonesia', 'TR': 'Turkey', 'AE': 'UAE',
+    'SA': 'Saudi Arabia', 'IL': 'Israel', 'EG': 'Egypt', 'NG': 'Nigeria', 'KE': 'Kenya', 'GR': 'Greece', 'PT': 'Portugal', 'IR': 'Iran',
+    'PK': 'Pakistan', 'BD': 'Bangladesh', 'LK': 'Sri Lanka', 'TW': 'Taiwan', 'AR': 'Argentina', 'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru',
+  };
+
+  try {
+    const geo = geoip.lookup(ip);
+    if (geo && geo.country) {
+      const countryCode = geo.country;
+      const countryName = countryNameMap[countryCode] || geo.country;
+      const flag = countryFlagMap[countryCode] || '🌍';
+      return { country: countryName, countryCode, flag };
+    }
+  } catch (error) {
+    console.error(`Error looking up IP ${ip}:`, error);
+  }
   
   return { country: 'Unknown', countryCode: 'XX', flag: '🌍' };
 }
