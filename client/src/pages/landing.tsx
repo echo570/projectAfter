@@ -82,9 +82,9 @@ export default function Landing() {
             <Lock className="w-8 h-8 text-destructive" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Your IP is Banned</h1>
+            <h1 className="text-3xl font-bold">Access Denied</h1>
             <p className="text-muted-foreground">
-              Your IP address has been temporarily restricted from accessing this service.
+              Your access has been temporarily restricted. Please try again later.
             </p>
           </div>
           <div className="p-4 bg-secondary rounded-lg space-y-3">
