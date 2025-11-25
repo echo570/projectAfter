@@ -186,6 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: userId,
           status: 'in-chat',
           sessionId: session.id,
+          interests: client.interests,
           connectedAt: Date.now(),
         });
 
@@ -193,6 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: partnerId,
           status: 'in-chat',
           sessionId: session.id,
+          interests: partner.interests,
           connectedAt: Date.now(),
         });
 
@@ -223,6 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await storage.setUserState(userId, {
       id: userId,
       status: 'waiting',
+      interests: client.interests,
       connectedAt: Date.now(),
     });
 

@@ -44,3 +44,9 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_mem_db:1.0.0", "javascript_websocket:1.0.0"]
+
+[userenv]
+
+[userenv.development]
+VITE_HMR_HOST = "0.0.0.0"
+VITE_HMR_PROTOCOL = "wss"
