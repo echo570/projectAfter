@@ -1118,7 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         body: JSON.stringify({
           text: text,
-          model_id: 'eleven_monolingual_v1',
+          model_id: 'eleven_turbo_v2_5',
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75,
@@ -1160,6 +1160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formData = new FormData();
       const blob = new Blob([audioBuffer], { type: 'audio/webm' });
       formData.append('file', blob, 'audio.webm');
+      formData.append('model_id', 'eleven_multilingual_v2');
+      formData.append('language_code', 'en');
 
       const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
         method: 'POST',
