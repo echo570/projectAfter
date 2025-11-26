@@ -25,6 +25,8 @@ export default function AIVoiceChat() {
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
+  const recognitionCompleteRef = useRef<boolean>(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,17 +44,23 @@ export default function AIVoiceChat() {
       recognitionRef.current.onresult = (event: any) => {
         let interim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
+          const text = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            setTranscript(prev => prev + transcript);
+            transcriptRef.current += text + ' ';
+            setTranscript(transcriptRef.current);
           } else {
-            interim += transcript;
+            interim += text;
           }
         }
       };
 
+      recognitionRef.current.onend = () => {
+        recognitionCompleteRef.current = true;
+      };
+
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
+        recognitionCompleteRef.current = true;
         toast({
           title: "Error",
           description: "Failed to process speech",
@@ -75,8 +83,21 @@ export default function AIVoiceChat() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await processAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        
+        // Wait a bit for speech recognition to finalize
+        setTimeout(() => {
+          if (transcriptRef.current.trim()) {
+            processAudio(audioBlob);
+          } else {
+            toast({
+              title: "Error",
+              description: "No speech detected. Please try again.",
+              variant: "destructive",
+            });
+            setIsRecording(false);
+          }
+        }, 500);
       };
 
       mediaRecorder.start();
@@ -107,7 +128,9 @@ export default function AIVoiceChat() {
   };
 
   const processAudio = async (audioBlob: Blob) => {
-    if (!transcript.trim()) {
+    const finalTranscript = transcriptRef.current.trim();
+    
+    if (!finalTranscript) {
       toast({
         title: "Error",
         description: "No speech detected",
@@ -120,10 +143,11 @@ export default function AIVoiceChat() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: transcript,
+      content: finalTranscript,
     };
 
     setMessages(prev => [...prev, userMessage]);
+    transcriptRef.current = "";
     setTranscript("");
 
     try {
@@ -131,7 +155,7 @@ export default function AIVoiceChat() {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: transcript }),
+        body: JSON.stringify({ message: finalTranscript }),
       });
 
       if (!response.ok) {
