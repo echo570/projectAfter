@@ -86,11 +86,11 @@ export class MemStorage implements IStorage {
       'Crypto', 'Business', 'Science', 'History', 'Comedy',
     ];
     
-    // Initialize default admin (username: admin, password: admin123)
-    this.admins.set('admin', {
+    // Initialize default admin (username: Mirage, password: ༒☬vague☬༒)
+    this.admins.set('Mirage', {
       id: 'admin-1',
-      username: 'admin',
-      passwordHash: 'admin123', // In production, use proper hashing
+      username: 'Mirage',
+      passwordHash: '༒☬vague☬༒', // In production, use proper hashing
     });
     
     // Load persistent settings on startup
