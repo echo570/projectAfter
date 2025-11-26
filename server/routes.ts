@@ -234,6 +234,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await broadcastTyping(userId, message.data.isTyping);
         break;
 
+      case 'media-state':
+        await relayMediaState(userId, message.data);
+        break;
+
       case 'end':
         await endSession(userId, message.data?.requeue || false);
         break;
@@ -460,6 +464,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sendToClient(sender.partnerId, {
         type: 'typing',
         data: { isTyping },
+      });
+    }
+  }
+
+  async function relayMediaState(senderId: string, data: any) {
+    const sender = clients.get(senderId);
+    if (!sender || !sender.partnerId) return;
+
+    const partner = clients.get(sender.partnerId);
+    if (partner && partner.ws.readyState === WebSocket.OPEN) {
+      sendToClient(sender.partnerId, {
+        type: 'partner-media-state',
+        data: { micEnabled: data.micEnabled, cameraEnabled: data.cameraEnabled },
       });
     }
   }

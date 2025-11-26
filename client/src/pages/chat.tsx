@@ -38,6 +38,8 @@ export default function Chat() {
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [partnerProfile, setPartnerProfile] = useState<UserProfile | null>(null);
+  const [partnerMicOn, setPartnerMicOn] = useState(true);
+  const [partnerCameraOn, setPartnerCameraOn] = useState(true);
 
   const wsRef = useRef<WebSocket | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -176,6 +178,11 @@ export default function Chat() {
 
       case 'typing':
         setIsTyping(msg.data.isTyping);
+        break;
+
+      case 'partner-media-state':
+        setPartnerMicOn(msg.data.micEnabled);
+        setPartnerCameraOn(msg.data.cameraEnabled);
         break;
 
       case 'end':
@@ -468,6 +475,8 @@ export default function Chat() {
     setMessages([]);
     setIsTyping(false);
     setHasRemoteStream(false);
+    setPartnerMicOn(true);
+    setPartnerCameraOn(true);
     sessionIdRef.current = null;
     
     if (peerConnectionRef.current) {
@@ -527,6 +536,18 @@ export default function Chat() {
                   {chatStatus === 'connected' ? 'Waiting for video...' : 'Disconnected'}
                 </p>
               </div>
+            </div>
+          )}
+          {hasRemoteStream && !partnerCameraOn && (
+            <div className="absolute top-4 left-4 bg-destructive/90 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+              <VideoOff className="w-4 h-4" />
+              Camera off
+            </div>
+          )}
+          {hasRemoteStream && !partnerMicOn && (
+            <div className="absolute top-16 left-4 bg-destructive/90 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+              <MicOff className="w-4 h-4" />
+              Mic off
             </div>
           )}
         </div>
