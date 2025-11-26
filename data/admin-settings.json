@@ -1,0 +1,36 @@
+{
+  "interests": [
+    "Gaming",
+    "Music",
+    "Movies",
+    "Sports",
+    "Travel",
+    "Tech",
+    "Art",
+    "Books",
+    "Fitness",
+    "Food",
+    "Photography",
+    "Cooking",
+    "Fashion",
+    "DIY",
+    "Pets",
+    "Crypto",
+    "Business",
+    "Science",
+    "History",
+    "Comedy"
+  ],
+  "fakeBotsEnabled": false,
+  "fakeUserCountSettings": {
+    "minUsers": 0,
+    "maxUsers": 0,
+    "enabled": false
+  },
+  "maintenanceMode": {
+    "enabled": false,
+    "reason": ""
+  },
+  "permanentAdminIP": null,
+  "aiEnabled": true
+}
