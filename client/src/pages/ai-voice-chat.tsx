@@ -2,13 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Mic, MicOff, Volume2, VolumeX, Loader } from "lucide-react";
+import { ArrowLeft, Mic, MicOff, Volume2, Loader } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+}
+
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+  }
 }
 
 export default function AIVoiceChat() {
@@ -19,56 +26,117 @@ export default function AIVoiceChat() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const [pageLoaded, setPageLoaded] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef<string>("");
-  const recognitionCompleteRef = useRef<boolean>(false);
+  const finalTranscriptRef = useRef<string>("");
+  const recordingStartTimeRef = useRef<number>(0);
 
+  // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize Web Speech API for transcription
+  // Initialize speech recognition and play greeting
   useEffect(() => {
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (SpeechRecognition) {
+    const initializeAndGreet = async () => {
+      // Initialize Web Speech API
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          title: "Browser Not Supported",
+          description: "Your browser doesn't support voice input. Please use Chrome, Edge, or Safari.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
 
-      recognitionRef.current.onresult = (event: any) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            transcriptRef.current += text + ' ';
-            setTranscript(transcriptRef.current);
-          } else {
-            interim += text;
-          }
-        }
+      recognitionRef.current.onstart = () => {
+        finalTranscriptRef.current = '';
+        setInterimTranscript('');
       };
 
-      recognitionRef.current.onend = () => {
-        recognitionCompleteRef.current = true;
+      recognitionRef.current.onresult = (event: any) => {
+        let interim = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current += transcript + ' ';
+            console.log('Final transcript:', finalTranscriptRef.current);
+          } else {
+            interim += transcript;
+          }
+        }
+        
+        setInterimTranscript(interim);
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
-        recognitionCompleteRef.current = true;
+        console.error('Speech recognition error:', event.error);
         toast({
-          title: "Error",
-          description: "Failed to process speech",
+          title: "Microphone Error",
+          description: `Error: ${event.error}. Check microphone permissions and try again.`,
           variant: "destructive",
         });
       };
+
+      // Play greeting
+      await playGreeting();
+      setPageLoaded(true);
+    };
+
+    initializeAndGreet();
+  }, []);
+
+  const playGreeting = async () => {
+    const greetingText = "Hello, I'm Gemma, a Google AI. How can I help you today?";
+    
+    const greetingMessage: Message = {
+      id: 'greeting',
+      role: 'assistant',
+      content: greetingText,
+    };
+
+    setMessages([greetingMessage]);
+    setIsSpeaking(true);
+
+    try {
+      const audioResponse = await fetch('/api/ai/voice/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: greetingText }),
+      });
+
+      if (!audioResponse.ok) {
+        throw new Error('Failed to synthesize speech');
+      }
+
+      const audioBlob = await audioResponse.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.play();
+    } catch (error) {
+      console.error('Failed to play greeting:', error);
+      setIsSpeaking(false);
     }
-  }, [toast]);
+  };
 
   const startRecording = async () => {
     try {
@@ -76,28 +144,39 @@ export default function AIVoiceChat() {
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
+      finalTranscriptRef.current = '';
+      setInterimTranscript('');
+      recordingStartTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (event) => {
-        chunksRef.current.push(event.data);
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach(track => track.stop());
         
-        // Wait a bit for speech recognition to finalize
-        setTimeout(() => {
-          if (transcriptRef.current.trim()) {
-            processAudio(audioBlob);
-          } else {
-            toast({
-              title: "Error",
-              description: "No speech detected. Please try again.",
-              variant: "destructive",
-            });
-            setIsRecording(false);
-          }
-        }, 500);
+        // Wait for speech recognition to finalize
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        const spokenText = finalTranscriptRef.current.trim();
+        const recordingDuration = Date.now() - recordingStartTimeRef.current;
+
+        console.log('Recording duration:', recordingDuration);
+        console.log('Spoken text:', spokenText);
+        console.log('Spoken text length:', spokenText.length);
+
+        if (spokenText && spokenText.length > 0) {
+          await processUserMessage(spokenText);
+        } else {
+          toast({
+            title: "No Speech Detected",
+            description: "Please speak clearly and try again.",
+            variant: "destructive",
+          });
+          setIsRecording(false);
+        }
       };
 
       mediaRecorder.start();
@@ -105,13 +184,17 @@ export default function AIVoiceChat() {
 
       // Start speech recognition
       if (recognitionRef.current) {
-        recognitionRef.current.start();
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error('Failed to start recognition:', error);
+        }
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
       toast({
-        title: "Error",
-        description: "Failed to access microphone",
+        title: "Microphone Error",
+        description: "Unable to access microphone. Check permissions and try again.",
         variant: "destructive",
       });
     }
@@ -121,41 +204,34 @@ export default function AIVoiceChat() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.error('Failed to stop recognition:', error);
+        }
       }
     }
   };
 
-  const processAudio = async (audioBlob: Blob) => {
-    const finalTranscript = transcriptRef.current.trim();
-    
-    if (!finalTranscript) {
-      toast({
-        title: "Error",
-        description: "No speech detected",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const processUserMessage = async (userSpeech: string) => {
     setIsProcessing(true);
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: finalTranscript,
+      content: userSpeech,
     };
 
     setMessages(prev => [...prev, userMessage]);
-    transcriptRef.current = "";
-    setTranscript("");
 
     try {
       // Get AI response
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: finalTranscript }),
+        body: JSON.stringify({ message: userSpeech }),
       });
 
       if (!response.ok) {
@@ -170,14 +246,12 @@ export default function AIVoiceChat() {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-
-      // Synthesize speech response
       await synthesizeAndPlay(data.response);
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to process request",
+        description: "Failed to process your request. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -213,11 +287,19 @@ export default function AIVoiceChat() {
       setIsSpeaking(false);
       toast({
         title: "Error",
-        description: "Failed to synthesize speech",
+        description: "Failed to play audio response.",
         variant: "destructive",
       });
     }
   };
+
+  if (!pageLoaded) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
+        <Loader className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -233,8 +315,8 @@ export default function AIVoiceChat() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-lg font-semibold">AI Voice Chat</h1>
-            <p className="text-sm text-muted-foreground">Speak with AI - powered by Gemini & ElevenLabs</p>
+            <h1 className="text-lg font-semibold">Gemma - AI Voice Chat</h1>
+            <p className="text-sm text-muted-foreground">Voice-powered by Gemini & ElevenLabs</p>
           </div>
         </div>
       </header>
@@ -243,17 +325,7 @@ export default function AIVoiceChat() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
-            <Card className="p-8 max-w-md text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Mic className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold mb-2">Start Talking</h2>
-                <p className="text-sm text-muted-foreground">
-                  Press the microphone button to speak with AI. Your voice will be transcribed and answered.
-                </p>
-              </div>
-            </Card>
+            <div className="text-center text-muted-foreground">Loading...</div>
           </div>
         )}
 
@@ -284,19 +356,20 @@ export default function AIVoiceChat() {
           </div>
         )}
 
+        {interimTranscript && isRecording && (
+          <div className="flex justify-end">
+            <div className="bg-primary/20 text-primary px-4 py-2 rounded-lg max-w-sm text-sm italic">
+              {interimTranscript}
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
       <div className="border-t bg-card/50 backdrop-blur p-4">
         <div className="max-w-2xl mx-auto space-y-3">
-          {transcript && (
-            <div className="p-3 bg-secondary rounded-lg text-sm">
-              <p className="text-muted-foreground mb-1">Listening:</p>
-              <p className="text-foreground">{transcript}</p>
-            </div>
-          )}
-
           <div className="flex gap-2 justify-center">
             <Button
               size="lg"
@@ -330,9 +403,9 @@ export default function AIVoiceChat() {
             {isRecording
               ? 'Listening... Click to stop'
               : isProcessing
-              ? 'Processing your request...'
+              ? 'Processing...'
               : isSpeaking
-              ? 'AI is speaking...'
+              ? 'Gemma is speaking...'
               : 'Click the microphone to start'}
           </p>
         </div>
