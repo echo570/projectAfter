@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { MessageBubble } from "@/components/MessageBubble";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { WaitingScreen } from "@/components/WaitingScreen";
-import { ConnectionStatus } from "@/components/ConnectionStatus";
 import {
   Mic,
   MicOff,
@@ -545,12 +544,7 @@ export default function Chat() {
   };
 
   if (chatStatus === 'waiting') {
-    return (
-      <>
-        <ConnectionStatus isConnected={isServerConnected} isReconnecting={isReconnecting} lastDisconnectTime={lastDisconnectTime} />
-        <WaitingScreen onCancel={handleCancelWaiting} language={language} />
-      </>
-    );
+    return <WaitingScreen onCancel={handleCancelWaiting} language={language} />;
   }
 
   return (
