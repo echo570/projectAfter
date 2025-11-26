@@ -107,6 +107,16 @@ export class MemStorage implements IStorage {
       if (settings.maintenanceMode) this.maintenanceMode = settings.maintenanceMode;
       if (settings.permanentAdminIP) this.permanentAdminIP = settings.permanentAdminIP;
       if (settings.aiEnabled !== undefined) this.aiEnabled = settings.aiEnabled;
+      if (settings.bannedIPs) {
+        settings.bannedIPs.forEach((ban: BannedIP) => this.bannedIPs.set(ban.ipAddress, ban));
+      }
+      if (settings.bannedUsers) {
+        settings.bannedUsers.forEach((ban: BannedUser) => this.bannedUsers.set(ban.userId, ban));
+      }
+      if (settings.reports) this.reports = settings.reports;
+      if (settings.blockedCountries) {
+        settings.blockedCountries.forEach((country: BlockedCountry) => this.blockedCountries.set(country.countryCode, country));
+      }
       console.log('Admin settings loaded from disk');
     } catch {
       console.log('No existing admin settings found, using defaults');
@@ -123,6 +133,10 @@ export class MemStorage implements IStorage {
         maintenanceMode: this.maintenanceMode,
         permanentAdminIP: this.permanentAdminIP,
         aiEnabled: this.aiEnabled,
+        bannedIPs: Array.from(this.bannedIPs.values()),
+        bannedUsers: Array.from(this.bannedUsers.values()),
+        reports: this.reports,
+        blockedCountries: Array.from(this.blockedCountries.values()),
       };
       await fs.writeFile(this.settingsPath, JSON.stringify(settings, null, 2));
     } catch (error) {
@@ -216,6 +230,7 @@ export class MemStorage implements IStorage {
       bannedBy: adminId,
     };
     this.bannedUsers.set(userId, ban);
+    await this.saveSettingsToDisk();
   }
 
   async unbanUser(userId: string): Promise<void> {
@@ -275,6 +290,7 @@ export class MemStorage implements IStorage {
       expiresAt: Date.now() + durationDays * 24 * 60 * 60 * 1000,
     };
     this.bannedIPs.set(ipAddress, ban);
+    await this.saveSettingsToDisk();
   }
 
   async unbanIP(ipAddress: string): Promise<void> {
@@ -318,6 +334,7 @@ export class MemStorage implements IStorage {
       reportedAt: Date.now(),
     };
     this.reports.push(report);
+    await this.saveSettingsToDisk();
   }
 
   async getReportCountInLast24Hours(ipAddress: string): Promise<number> {
