@@ -11,13 +11,6 @@ interface Message {
   content: string;
 }
 
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
-}
-
 export default function AIVoiceChat() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -26,242 +19,29 @@ export default function AIVoiceChat() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [interimTranscript, setInterimTranscript] = useState("");
   const [pageLoaded, setPageLoaded] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const finalTranscriptRef = useRef<string>("");
-  const recordingStartTimeRef = useRef<number>(0);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize speech recognition and play greeting
+  // Play greeting on load
   useEffect(() => {
-    const initializeAndGreet = async () => {
-      // Initialize Web Speech API
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      if (!SpeechRecognition) {
-        toast({
-          title: "Browser Not Supported",
-          description: "Your browser doesn't support voice input. Please use Chrome, Edge, or Safari.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
-
-      recognitionRef.current.onstart = () => {
-        finalTranscriptRef.current = '';
-        setInterimTranscript('');
-      };
-
-      recognitionRef.current.onresult = (event: any) => {
-        let interim = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          
-          if (event.results[i].isFinal) {
-            finalTranscriptRef.current += transcript + ' ';
-            console.log('Final transcript:', finalTranscriptRef.current);
-          } else {
-            interim += transcript;
-          }
-        }
-        
-        setInterimTranscript(interim);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        toast({
-          title: "Microphone Error",
-          description: `Error: ${event.error}. Check microphone permissions and try again.`,
-          variant: "destructive",
-        });
-      };
-
-      // Play greeting
-      await playGreeting();
-      setPageLoaded(true);
-    };
-
-    initializeAndGreet();
+    const greetingText = "Hello, I'm Gemma, a Google AI. How can I help you today?";
+    playGreeting(greetingText);
+    setPageLoaded(true);
   }, []);
 
-  const playGreeting = async () => {
-    const greetingText = "Hello, I'm Gemma, a Google AI. How can I help you today?";
-    
-    const greetingMessage: Message = {
-      id: 'greeting',
-      role: 'assistant',
-      content: greetingText,
-    };
-
-    setMessages([greetingMessage]);
+  const playGreeting = async (text: string) => {
     setIsSpeaking(true);
 
     try {
-      const audioResponse = await fetch('/api/ai/voice/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: greetingText }),
-      });
-
-      if (!audioResponse.ok) {
-        throw new Error('Failed to synthesize speech');
-      }
-
-      const audioBlob = await audioResponse.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-
-      audio.play();
-    } catch (error) {
-      console.error('Failed to play greeting:', error);
-      setIsSpeaking(false);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-      finalTranscriptRef.current = '';
-      setInterimTranscript('');
-      recordingStartTimeRef.current = Date.now();
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
-        
-        // Wait for speech recognition to finalize
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        const spokenText = finalTranscriptRef.current.trim();
-        const recordingDuration = Date.now() - recordingStartTimeRef.current;
-
-        console.log('Recording duration:', recordingDuration);
-        console.log('Spoken text:', spokenText);
-        console.log('Spoken text length:', spokenText.length);
-
-        if (spokenText && spokenText.length > 0) {
-          await processUserMessage(spokenText);
-        } else {
-          toast({
-            title: "No Speech Detected",
-            description: "Please speak clearly and try again.",
-            variant: "destructive",
-          });
-          setIsRecording(false);
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-
-      // Start speech recognition
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch (error) {
-          console.error('Failed to start recognition:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      toast({
-        title: "Microphone Error",
-        description: "Unable to access microphone. Check permissions and try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (error) {
-          console.error('Failed to stop recognition:', error);
-        }
-      }
-    }
-  };
-
-  const processUserMessage = async (userSpeech: string) => {
-    setIsProcessing(true);
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: userSpeech,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-
-    try {
-      // Get AI response
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userSpeech }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-
-      const data = await response.json();
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.response,
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      await synthesizeAndPlay(data.response);
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to process your request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const synthesizeAndPlay = async (text: string) => {
-    try {
-      setIsSpeaking(true);
       const audioResponse = await fetch('/api/ai/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -281,9 +61,189 @@ export default function AIVoiceChat() {
         URL.revokeObjectURL(audioUrl);
       };
 
-      audio.play();
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.play().catch(err => {
+        console.error('Failed to play audio:', err);
+        setIsSpeaking(false);
+      });
     } catch (error) {
-      console.error('Failed to synthesize speech:', error);
+      console.error('Failed to play greeting:', error);
+      setIsSpeaking(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        
+        if (audioBlob.size < 1000) {
+          toast({
+            title: "No Speech Detected",
+            description: "Please speak clearly and try again.",
+            variant: "destructive",
+          });
+          setIsRecording(false);
+          return;
+        }
+
+        await transcribeAndProcess(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      toast({
+        title: "Microphone Error",
+        description: "Unable to access microphone. Check permissions and try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    }
+  };
+
+  const transcribeAndProcess = async (audioBlob: Blob) => {
+    setIsProcessing(true);
+
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      
+      reader.onloadend = async () => {
+        const base64Audio = reader.result?.toString().split(',')[1];
+        
+        if (!base64Audio) {
+          throw new Error('Failed to convert audio');
+        }
+
+        // Transcribe using ElevenLabs
+        const transcribeResponse = await fetch('/api/ai/voice/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: base64Audio }),
+        });
+
+        if (!transcribeResponse.ok) {
+          throw new Error('Failed to transcribe');
+        }
+
+        const transcribeData = await transcribeResponse.json();
+        const userSpeech = transcribeData.text.trim();
+
+        if (!userSpeech) {
+          toast({
+            title: "No Speech Detected",
+            description: "Could not understand your speech. Please try again.",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        // Add user message
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: 'user',
+          content: userSpeech,
+        };
+
+        setMessages(prev => [...prev, userMessage]);
+
+        // Get AI response
+        const response = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userSpeech }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get AI response');
+        }
+
+        const data = await response.json();
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.response,
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+        await playAIResponse(data.response);
+      };
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process your request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const playAIResponse = async (text: string) => {
+    setIsSpeaking(true);
+
+    try {
+      const audioResponse = await fetch('/api/ai/voice/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!audioResponse.ok) {
+        throw new Error('Failed to synthesize speech');
+      }
+
+      const audioBlob = await audioResponse.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.play().catch(err => {
+        console.error('Failed to play audio:', err);
+        setIsSpeaking(false);
+      });
+    } catch (error) {
+      console.error('Failed to play response:', error);
       setIsSpeaking(false);
       toast({
         title: "Error",
@@ -325,7 +285,17 @@ export default function AIVoiceChat() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center text-muted-foreground">Loading...</div>
+            <Card className="p-8 max-w-md text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Mic className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Ready to Chat</h2>
+                <p className="text-sm text-muted-foreground">
+                  Click the microphone button below to start speaking with Gemma.
+                </p>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -352,14 +322,6 @@ export default function AIVoiceChat() {
             <div className="bg-muted px-4 py-3 rounded-lg flex items-center gap-2">
               <Loader className="w-4 h-4 animate-spin" />
               <span className="text-sm">Processing...</span>
-            </div>
-          </div>
-        )}
-
-        {interimTranscript && isRecording && (
-          <div className="flex justify-end">
-            <div className="bg-primary/20 text-primary px-4 py-2 rounded-lg max-w-sm text-sm italic">
-              {interimTranscript}
             </div>
           </div>
         )}

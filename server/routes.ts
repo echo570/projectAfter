@@ -1141,5 +1141,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Voice transcription endpoint
+  app.post('/api/ai/voice/transcribe', async (req, res) => {
+    try {
+      const { audio } = req.body;
+      if (!audio) {
+        return res.status(400).json({ error: 'No audio provided' });
+      }
+
+      const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+      if (!elevenLabsApiKey) {
+        return res.status(503).json({ error: 'Voice transcription is not configured' });
+      }
+
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(audio, 'base64');
+
+      const formData = new FormData();
+      const blob = new Blob([audioBuffer], { type: 'audio/webm' });
+      formData.append('file', blob, 'audio.webm');
+
+      const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': elevenLabsApiKey,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('ElevenLabs transcription error:', error);
+        return res.status(500).json({ error: 'Failed to transcribe speech' });
+      }
+
+      const data = await response.json();
+      res.json({ text: data.text || '' });
+    } catch (error) {
+      console.error('Voice transcription error:', error);
+      res.status(500).json({ error: 'Failed to process voice transcription' });
+    }
+  });
+
   return httpServer;
 }
